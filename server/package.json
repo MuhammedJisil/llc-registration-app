@@ -4,20 +4,33 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.2",
+    "brevo": "^1.0.0",
     "cors": "^2.8.5",
+    "crypto": "^1.0.1",
     "dotenv": "^16.4.7",
+    "env": "^0.0.2",
     "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "googleapis": "^146.0.0",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
-    "pg": "^8.13.3"
+    "nodemailer": "^6.10.0",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "pg": "^8.13.3",
+    "pool": "^0.4.1",
+    "sib-api-v3-sdk": "^8.5.0",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
