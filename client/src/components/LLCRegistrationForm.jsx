@@ -286,11 +286,23 @@ const handleBack = (e) => {
   const downloadSummaryPDF = async () => {
     setIsLoading(true);
     try {
-      const registrationId = localStorage.getItem("registrationId");
-      const userId = localStorage.getItem("userId"); // Ensure userId is available
-  
-      const response = await axios.get(`${BASE_URL}/api/llc-registrations/${registrationId}/pdf?userId=${userId}`, {
-        responseType: "blob", // Important: Set response type to blob for PDFs
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error("User authentication token is missing. Please log in again.");
+      }
+      
+      const decodedToken = jwtDecode(token);
+      const userId = decodedToken.id;
+      
+      if (!userId) {
+        throw new Error("User ID not found in token. Please log in again.");
+      }
+      
+      const registrationId = localStorage.getItem(`registrationId_${userId}`);
+      
+      const response = await axios.get(`${BASE_URL}/api/llc-registrations/${registrationId}/pdf`, {
+        responseType: "blob",
+        params: { userId } // Pass userId as a query parameter
       });
   
       // Create a download link

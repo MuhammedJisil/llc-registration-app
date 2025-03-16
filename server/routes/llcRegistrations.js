@@ -3,6 +3,7 @@ const router = express.Router();
 const {pool} = require('../config/db');
 const upload = require('../middleware/fileUpload');
 const jwt = require("jsonwebtoken");
+const PDFDocument = require('pdfkit');
 
 const { authenticateToken } = require('../middleware/auth');
 
@@ -463,16 +464,22 @@ router.delete('/llc-registrations/:id', async (req, res) => {
   }
 });
 
+
 // Generate PDF summary of LLC registration
 router.get("/llc-registrations/:id/pdf", async (req, res) => {
   const { id } = req.params;
   const userId = req.query.userId;
 
+  // Add validation
+  if (!userId) {
+    return res.status(400).json({ error: "User ID is required" });
+  }
+
   try {
     // Verify the user has access to this registration
     const verifyResult = await pool.query(
       "SELECT * FROM llc_registrations WHERE id = $1 AND user_id = $2",
-      [id, userId]
+      [id, parseInt(userId, 10)] // Ensure userId is converted to integer
     );
 
     if (verifyResult.rows.length === 0) {
