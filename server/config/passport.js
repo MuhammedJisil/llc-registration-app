@@ -1,6 +1,6 @@
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const { db } = require('../config/db');
+const { pool } = require('../config/db');
 
 module.exports = function() {
   passport.use(new GoogleStrategy({
@@ -18,7 +18,7 @@ module.exports = function() {
         const profilePicture = profile.photos && profile.photos[0] ? profile.photos[0].value : '';
         
         // First check if user exists by Google ID
-        const existingUserByGoogleId = await db.query(
+        const existingUserByGoogleId = await pool.query(
           'SELECT * FROM users WHERE google_id = $1',
           [profile.id]
         );
@@ -26,13 +26,13 @@ module.exports = function() {
         if (existingUserByGoogleId.rows.length > 0) {
           // User already exists with this Google ID, update profile picture if available
           if (profilePicture) {
-            await db.query(
+            await pool.query(
               'UPDATE users SET google_profile_picture = $1 WHERE google_id = $2',
               [profilePicture, profile.id]
             );
             
             // Get the updated user record
-            const updatedUser = await db.query(
+            const updatedUser = await pool.query(
               'SELECT * FROM users WHERE google_id = $1',
               [profile.id]
             );
@@ -45,14 +45,14 @@ module.exports = function() {
         }
         
         // If no user with this Google ID, check if email exists
-        const existingUserByEmail = await db.query(
+        const existingUserByEmail = await pool.query(
           'SELECT * FROM users WHERE email = $1',
           [email]
         );
         
         if (existingUserByEmail.rows.length > 0) {
           // User with this email exists, update with Google ID and profile picture
-          const updatedUser = await db.query(
+          const updatedUser = await pool.query(
             'UPDATE users SET google_id = $1, google_profile_picture = $2 WHERE email = $3 RETURNING *',
             [profile.id, profilePicture, email]
           );
@@ -61,7 +61,7 @@ module.exports = function() {
         }
         
         // No user with this Google ID or email exists, create new user
-        const newUser = await db.query(
+        const newUser = await pool.query(
           'INSERT INTO users (full_name, email, google_id, google_profile_picture, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING *',
           [name, email, profile.id, profilePicture]
         );
@@ -81,7 +81,7 @@ module.exports = function() {
 
   passport.deserializeUser(async (id, done) => {
     try {
-      const result = await db.query('SELECT * FROM users WHERE id = $1', [id]);
+      const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
       done(null, result.rows[0]);
     } catch (error) {
       done(error, null);

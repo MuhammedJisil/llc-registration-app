@@ -1,5 +1,5 @@
 import { useTheme } from "next-themes"
-import { Toaster as Sonner } from "sonner"
+import { Toaster as Sonner, toast } from "sonner";
 
 const Toaster = ({
   ...props
@@ -25,4 +25,4 @@ const Toaster = ({
   );
 }
 
-export { Toaster }
+export { Toaster, toast };

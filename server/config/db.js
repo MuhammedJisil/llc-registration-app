@@ -1,4 +1,3 @@
-
 /******** config/db.js ********/
 const { Pool } = require('pg');
 const dotenv = require('dotenv');
@@ -13,18 +12,4 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
 });
 
-// Database queries
-const db = {
-  connect: async () => {
-    try {
-      const client = await pool.connect();
-      client.release();
-      return true;
-    } catch (error) {
-      throw error;
-    }
-  },
-  query: (text, params) => pool.query(text, params),
-};
-
-module.exports = { db };
+module.exports = { pool };

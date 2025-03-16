@@ -38,7 +38,7 @@ const Login = () => {
         description: 'Welcome back!'
       });
       
-      navigate('/');
+      navigate('/dashboard');
     } catch (error) {
       toast.error('Login failed', {
         description: error.message

@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const passport = require('passport');
-const { db } = require('../config/db'); 
+const { pool } = require('../config/db'); 
 const authController = require('../controllers/authController');
 
 
@@ -48,7 +48,7 @@ router.post('/register', async (req, res) => {
     const { fullName, email, password } = req.body;
     
     // Check if user already exists
-    const userExists = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    const userExists = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     
     if (userExists.rows.length > 0) {
       return res.status(400).json({ message: 'User with this email already exists' });
@@ -59,7 +59,7 @@ router.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
     
     // Create new user
-    const newUser = await db.query(
+    const newUser = await pool.query(
       'INSERT INTO users (full_name, email, password, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id, full_name, email, created_at',
       [fullName, email, hashedPassword]
     );
@@ -80,7 +80,7 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     
     // Check if user exists
-    const user = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     
     if (user.rows.length === 0) {
       return res.status(401).json({ message: 'Invalid credentials' });

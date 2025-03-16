@@ -104,7 +104,7 @@ const Header = () => {
     <AvatarImage 
       src={userProfile.picture} 
       alt={userProfile.name || 'User'} 
-      referrerpolicy="no-referrer"
+      referrerPolicy="no-referrer"
     />
     <AvatarFallback className="bg-[#FFD700] text-[#0F172A]">{getInitials()}</AvatarFallback>
   </Avatar>

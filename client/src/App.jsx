@@ -9,6 +9,10 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
+import Dashboard from './components/Dashboard';
+import LLCRegistrationForm from './components/LLCRegistrationForm';
+import StripeCheckout from './components/StripeCheckout';
+import PaymentConfirmation from './components/PaymentConfirmation';
 
 function App() {
   return (
@@ -23,6 +27,10 @@ function App() {
           <Route path="/auth-callback" element={<AuthCallback />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} /> 
+          <Route path="/dashboard" element={<Dashboard/>} /> 
+          <Route path="/register-llc" element={<LLCRegistrationForm />} />
+          <Route path="/checkout/:id" element={<StripeCheckout />} />
+          <Route path="/payment-confirmation/:id" element={<PaymentConfirmation />} />
           
         </Routes>
         <Footer />

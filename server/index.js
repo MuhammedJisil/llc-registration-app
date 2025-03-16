@@ -5,6 +5,9 @@ const helmet = require('helmet');
 const passport = require('passport');
 const session = require('express-session');
 const dotenv = require('dotenv');
+const path = require('path');
+const bodyParser = require("body-parser");
+
 
 // Load environment variables
 dotenv.config();
@@ -29,6 +32,9 @@ app.use(session({
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));  // Serve uploaded files
+app.use(bodyParser.json());
+
 
 // Initialize passport
 app.use(passport.initialize());
@@ -40,6 +46,11 @@ require('./config/passport')();
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/user', require('./routes/user'));
+app.use('/api',  require('./routes/states'));
+app.use('/api',  require('./routes/categories'));
+app.use('/api',  require('./routes/llcRegistrations'));
+app.use('/api', require('./routes/documents'));
+
 
 // Start server
 app.listen(PORT, () => {
