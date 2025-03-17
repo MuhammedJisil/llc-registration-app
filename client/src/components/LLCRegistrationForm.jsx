@@ -192,8 +192,8 @@ const saveProgress = async () => {
     }
     
     // Create a new FormData object
-    const data = new FormData();
-    const formData = form.getValues();
+    const formData = new FormData();
+    const formValues = form.getValues();
     
     // Get the existing registrationId if available - make it user-specific
     const registrationId = localStorage.getItem(`registrationId_${userId}`);
@@ -202,24 +202,36 @@ const saveProgress = async () => {
     const jsonData = {
       id: registrationId, // Include the ID if it exists
       userId,
-      state: formData.state,
+      state: formValues.state,
       stateAmount: parseFloat(stateAmount) || 0,
-      companyName: formData.companyName,
-      companyType: formData.companyType,
-      category: formData.category,
-      owners: formData.owners,
-      address: formData.address,
+      companyName: formValues.companyName,
+      companyType: formValues.companyType,
+      category: formValues.category,
+      owners: formValues.owners,
+      address: formValues.address,
       status: 'draft',
       step: currentStep,
-      paymentStatus: formData.paymentStatus
+      paymentStatus: formValues.paymentStatus
     };
     
-    data.append('data', JSON.stringify(jsonData));
+    formData.append('data', JSON.stringify(jsonData));
     
-    // Append files as before...
+    // Append ID document if it exists
+    if (formValues.identificationDocuments.idFile) {
+      formData.append('idDocument', formValues.identificationDocuments.idFile);
+      formData.append('idType', formValues.identificationDocuments.idType);
+    }
+    
+    // Append additional documents if they exist
+    if (formValues.identificationDocuments.additionalDocuments && 
+        formValues.identificationDocuments.additionalDocuments.length > 0) {
+      formValues.identificationDocuments.additionalDocuments.forEach((doc) => {
+        formData.append('additionalDocuments', doc.file);
+      });
+    }
     
     // Send the request
-    const response = await axios.post(`${BASE_URL}/api/llc-registrations`, data, {
+    const response = await axios.post(`${BASE_URL}/api/llc-registrations`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
         'Authorization': `Bearer ${token}`,
@@ -239,7 +251,6 @@ const saveProgress = async () => {
     setIsLoading(false);
   }
 };
-
 const handleNext = async (e) => {
   e.preventDefault(); // Prevent default form submission
   await saveProgress();

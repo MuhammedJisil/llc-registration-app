@@ -17,7 +17,7 @@ const storage = multer.diskStorage({
     // Determine directory based on field name
     if (file.fieldname === 'idDocument') {
       cb(null, idDocumentsDir);
-    } else if (file.fieldname.startsWith('additionalDocument_')) {
+    } else if (file.fieldname.startsWith('additionalDocument')) {
       cb(null, additionalDocsDir);
     } else {
       cb(null, uploadsDir);

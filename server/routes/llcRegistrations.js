@@ -10,7 +10,7 @@ const { authenticateToken } = require('../middleware/auth');
 // Create or update LLC registration
 router.post('/llc-registrations', authenticateToken, upload.fields([
   { name: 'idDocument', maxCount: 1 },
-  { name: /additionalDocument_\d+/, maxCount: 1 } // Dynamic fields for additional documents
+  { name: 'additionalDocuments', maxCount: 10 } // Allow up to 10 additional documents
 ]), async (req, res) => {
   const client = await pool.connect();
 
