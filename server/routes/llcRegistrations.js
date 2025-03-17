@@ -194,29 +194,25 @@ if (owners && owners.length > 0) {
     }
     
     // Handle additional documents
-    const additionalDocKeys = Object.keys(req.files || {}).filter(key => key.startsWith('additionalDocument_'));
-    
-    if (additionalDocKeys.length > 0) {
-      // If updating, remove old additional documents from the DB (but keep the files)
-      if (registrationId) {
-        await client.query(
-          'DELETE FROM identification_documents WHERE registration_id = $1 AND document_type = $2',
-          [newRegistrationId, 'additional']
-        );
-      }
-      
-      // Insert each additional document
-      for (const key of additionalDocKeys) {
-        const additionalDoc = req.files[key][0];
-        
-        await client.query(
-          `INSERT INTO identification_documents 
-           (registration_id, document_type, file_path, file_name)
-           VALUES ($1, $2, $3, $4)`,
-          [newRegistrationId, 'additional', additionalDoc.path, additionalDoc.filename]
-        );
-      }
-    }
+if (req.files && req.files.additionalDocuments && req.files.additionalDocuments.length > 0) {
+  // If updating, remove old additional documents from the DB
+  if (registrationId) {
+    await client.query(
+      'DELETE FROM identification_documents WHERE registration_id = $1 AND document_type = $2',
+      [newRegistrationId, 'additional']
+    );
+  }
+  
+  // Insert each additional document
+  for (const additionalDoc of req.files.additionalDocuments) {
+    await client.query(
+      `INSERT INTO identification_documents 
+       (registration_id, document_type, file_path, file_name)
+       VALUES ($1, $2, $3, $4)`,
+      [newRegistrationId, 'additional', additionalDoc.path, additionalDoc.filename]
+    );
+  }
+}
     
     await client.query('COMMIT');
     

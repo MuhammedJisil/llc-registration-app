@@ -228,11 +228,11 @@ const saveProgress = async (shouldUpdateExisting = true) => {
     
     // Append additional documents if they exist
     if (formValues.identificationDocuments.additionalDocuments && 
-        formValues.identificationDocuments.additionalDocuments.length > 0) {
-      formValues.identificationDocuments.additionalDocuments.forEach((doc) => {
-        formData.append('additionalDocuments', doc.file);
-      });
-    }
+    formValues.identificationDocuments.additionalDocuments.length > 0) {
+  formValues.identificationDocuments.additionalDocuments.forEach((doc) => {
+    formData.append('additionalDocuments', doc.file);
+  });
+}
     
     // Send the request
     const response = await axios.post(`${BASE_URL}/api/llc-registrations`, formData, {
