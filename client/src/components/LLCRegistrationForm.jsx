@@ -91,7 +91,6 @@ const LLCRegistrationForm = () => {
   const formValues = form.watch();
 
   // Fetch state options and fees
- // First, update your useEffect to handle errors better and check the data format:
 useEffect(() => {
   if (location.state?.newRegistration) {
     startNewRegistration();
@@ -111,6 +110,8 @@ useEffect(() => {
     }
   };
 
+  
+
     const fetchCategories = async () => {
       try {
         const response = await axios.get(`${BASE_URL}/api/categories`);
@@ -123,6 +124,73 @@ useEffect(() => {
     fetchStateOptions();
     fetchCategories();
   }, []);
+
+  // Add this useEffect after your other useEffect hooks
+  useEffect(() => {
+    const loadExistingRegistration = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+  
+        const decodedToken = jwtDecode(token);
+        const userId = decodedToken.id;
+        const registrationId = localStorage.getItem(`registrationId_${userId}`);
+  
+        if (!registrationId) return;
+  
+        setIsLoading(true);
+        const response = await axios.get(
+          `${BASE_URL}/api/llc-registrations/${registrationId}?userId=${userId}`, // Pass userId
+          {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }
+        );
+  
+        const registrationData = response.data;
+        console.log("Fetched Data:", registrationData);
+  
+        // Update form fields
+        Object.keys(registrationData).forEach((key) => {
+          form.setValue(key, registrationData[key]);
+        });
+  
+        // Update nested values separately
+        if (registrationData.address) {
+          form.setValue("address", registrationData.address);
+        }
+  
+        if (registrationData.owners) {
+          form.setValue("owners", registrationData.owners);
+        }
+  
+        if (registrationData.identificationDocuments) {
+          form.setValue("identificationDocuments", registrationData.identificationDocuments);
+        }
+  
+        // Set state and step
+        if (registrationData.state) {
+          handleStateChange(registrationData.state);
+        }
+  
+        if (registrationData.step) {
+          setCurrentStep(parseInt(registrationData.step));
+        }
+  
+        // Load document previews if available
+        if (registrationData.identificationDocuments?.idFilePath) {
+          setPreviewUrl(registrationData.identificationDocuments.idFilePath); // Corrected
+        }
+  
+      } catch (error) {
+        console.error('Error loading existing registration:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+  
+    loadExistingRegistration();
+  }, [form]); // Add form as a dependency
+  
 
   const handleStateChange = (value) => {
     const selectedState = stateOptions.find(state => state.name === value);
