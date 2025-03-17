@@ -93,6 +93,9 @@ const LLCRegistrationForm = () => {
   // Fetch state options and fees
  // First, update your useEffect to handle errors better and check the data format:
 useEffect(() => {
+  if (location.state?.newRegistration) {
+    startNewRegistration();
+  }
   const fetchStateOptions = async () => {
     try {
       const response = await axios.get(`${BASE_URL}/api/states`);
@@ -176,7 +179,7 @@ useEffect(() => {
 
 
 // In saveProgress function - modify to use a user-specific key for the registrationId
-const saveProgress = async () => {
+const saveProgress = async (shouldUpdateExisting = true) => {
   setIsLoading(true);
   try {
     const token = localStorage.getItem('token');
@@ -202,6 +205,7 @@ const saveProgress = async () => {
     const jsonData = {
       id: registrationId, // Include the ID if it exists
       userId,
+      updateExisting: shouldUpdateExisting, // Add this flag
       state: formValues.state,
       stateAmount: parseFloat(stateAmount) || 0,
       companyName: formValues.companyName,
@@ -261,6 +265,43 @@ const handleNext = async (e) => {
 const handleBack = (e) => {
   e.preventDefault(); // Prevent default form submission
   setCurrentStep(currentStep - 1);
+};
+
+// Add this function to clear the registration ID
+const startNewRegistration = () => {
+  const token = localStorage.getItem('token');
+  const decodedToken = jwtDecode(token);
+  const userId = decodedToken.id;
+  
+  // Clear the stored registration ID
+  localStorage.removeItem(`registrationId_${userId}`);
+  
+  // Reset the form
+  form.reset({
+    state: '',
+    stateAmount: 0,
+    companyName: '',
+    companyType: 'LLC',
+    category: '',
+    owners: [{ fullName: '', ownershipPercentage: '' }],
+    address: {
+      street: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      country: 'United States'
+    },
+    identificationDocuments: {
+      idType: 'passport',
+      idFile: null,
+      idFileName: '',
+      additionalDocuments: []
+    },
+    paymentStatus: 'unpaid'
+  });
+  
+  // Reset step
+  setCurrentStep(1);
 };
 
 

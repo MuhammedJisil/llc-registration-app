@@ -189,9 +189,9 @@ const Dashboard = () => {
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Your Dashboard</h1>
-        <Button onClick={() => navigate('/register-llc')}>
-          Start New LLC Registration
-        </Button>
+        <Button onClick={() => navigate('/register-llc', { state: { newRegistration: true }})}>
+  Create New LLC
+</Button>
       </div>
 
       {loading ? (

@@ -56,53 +56,65 @@ router.post('/llc-registrations', authenticateToken, upload.fields([
     }
     
     // Check if there's an existing registration ID in the request
-    const registrationId = formData.id;
-    let result;
-    let newRegistrationId;
+const registrationId = formData.id;
+let result;
+let newRegistrationId;
+
+if (registrationId) {
+  // Only update if explicitly requested to update
+  if (formData.updateExisting) {
+    // First check if the registration exists
+    const checkResult = await client.query(
+      'SELECT id FROM llc_registrations WHERE id = $1 AND user_id = $2',
+      [registrationId, userId]
+    );
     
-    if (registrationId) {
-      // First check if the registration exists
-      const checkResult = await client.query(
-        'SELECT id FROM llc_registrations WHERE id = $1 AND user_id = $2',
-        [registrationId, userId]
+    if (checkResult.rows.length > 0) {
+      // Update existing registration
+      result = await client.query(
+        `UPDATE llc_registrations 
+         SET company_name = $1, company_type = $2, category_id = $3, 
+             state = $4, filing_fee = $5, status = $6, current_step = $7, 
+             payment_status = $8, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $9 AND user_id = $10
+         RETURNING id`,
+        [companyName, companyType, categoryId, state, stateAmount, status, step, paymentStatus, registrationId, userId]
       );
-      
-      if (checkResult.rows.length > 0) {
-        // Update existing registration
-        result = await client.query(
-          `UPDATE llc_registrations 
-           SET company_name = $1, company_type = $2, category_id = $3, 
-               state = $4, filing_fee = $5, status = $6, current_step = $7, 
-               payment_status = $8, updated_at = CURRENT_TIMESTAMP
-           WHERE id = $9 AND user_id = $10
-           RETURNING id`,
-          [companyName, companyType, categoryId, state, stateAmount, status, step, paymentStatus, registrationId, userId]
-        );
-        newRegistrationId = registrationId;
-      } else {
-        // Registration ID provided but doesn't exist in database
-        // Create new registration with the provided ID
-        result = await client.query(
-          `INSERT INTO llc_registrations 
-           (id, user_id, company_name, company_type, category_id, state, filing_fee, status, current_step, payment_status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-           RETURNING id`,
-          [registrationId, userId, companyName, companyType, categoryId, state, stateAmount, status, step, paymentStatus]
-        );
-        newRegistrationId = result.rows[0].id;
-      }
+      newRegistrationId = registrationId;
     } else {
-      // ✅ Create new registration with auto-generated ID
+      // Registration ID provided but doesn't exist in database
+      // Create new registration with the provided ID
       result = await client.query(
         `INSERT INTO llc_registrations 
-         (user_id, company_name, company_type, category_id, state, filing_fee, status, current_step, payment_status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         (id, user_id, company_name, company_type, category_id, state, filing_fee, status, current_step, payment_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING id`,
-        [userId, companyName, companyType, categoryId, state, stateAmount, status, step, paymentStatus]
+        [registrationId, userId, companyName, companyType, categoryId, state, stateAmount, status, step, paymentStatus]
       );
       newRegistrationId = result.rows[0].id;
     }
-    
+  } else {
+    // Create new registration even though ID was provided
+    result = await client.query(
+      `INSERT INTO llc_registrations 
+       (user_id, company_name, company_type, category_id, state, filing_fee, status, current_step, payment_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id`,
+      [userId, companyName, companyType, categoryId, state, stateAmount, status, step, paymentStatus]
+    );
+    newRegistrationId = result.rows[0].id;
+  }
+} else {
+  // ✅ Create new registration with auto-generated ID
+  result = await client.query(
+    `INSERT INTO llc_registrations 
+     (user_id, company_name, company_type, category_id, state, filing_fee, status, current_step, payment_status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING id`,
+    [userId, companyName, companyType, categoryId, state, stateAmount, status, step, paymentStatus]
+  );
+  newRegistrationId = result.rows[0].id;
+}
  // Handle owners if provided
 if (owners && owners.length > 0) {
   // Delete existing owners for this registration
