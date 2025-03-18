@@ -46,6 +46,12 @@ const AGENCY_DETAILS = {
   email: "support@mountainwestagents.com"
 };
 
+const RequiredLabel = ({ children }) => (
+  <FormLabel className="text-gray-700 font-medium">
+    {children} <span className="text-red-500">*</span>
+  </FormLabel>
+);
+
 const LLCRegistrationForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -103,10 +109,7 @@ useEffect(() => {
     } catch (error) {
       console.error('Error fetching state options:', error);
       // Set some default values as fallback
-      setStateOptions([
-        { name: 'Wyoming', fee: 100.00 },
-        { name: 'Montana', fee: 70.00 }
-      ]);
+     
     }
   };
 
@@ -323,10 +326,86 @@ const saveProgress = async (shouldUpdateExisting = true) => {
     setIsLoading(false);
   }
 };
+// Add this function to validate the current step
+const validateCurrentStep = () => {
+  switch (currentStep) {
+    case 1:
+      if (!formValues.state) {
+        alert("Please select a state before proceeding.");
+        return false;
+      }
+      return true;
+      
+    case 2:
+      if (!formValues.companyName) {
+        alert("Please enter a company name before proceeding.");
+        return false;
+      }
+      if (!formValues.category) {
+        alert("Please select a business category before proceeding.");
+        return false;
+      }
+      return true;
+      
+    case 3:
+      for (let i = 0; i < formValues.owners.length; i++) {
+        if (!formValues.owners[i].fullName || !formValues.owners[i].ownershipPercentage) {
+          alert(`Please complete all owner information for Owner ${i + 1}.`);
+          return false;
+        }
+      }
+      
+      // Validate total ownership percentage equals 100%
+      const totalPercentage = formValues.owners.reduce(
+        (sum, owner) => sum + Number(owner.ownershipPercentage), 0
+      );
+      
+      if (Math.abs(totalPercentage - 100) > 0.01) {
+        alert(`Total ownership percentage should equal 100%. Current total: ${totalPercentage}%`);
+        return false;
+      }
+      
+      return true;
+      
+    case 4:
+      if (!formValues.address.street || !formValues.address.city || 
+          !formValues.address.state || !formValues.address.postalCode) {
+        alert("Please complete all address fields before proceeding.");
+        return false;
+      }
+      return true;
+      
+    case 5:
+      if (!formValues.identificationDocuments.idFile && !formValues.identificationDocuments.idFileName) {
+        alert("Please upload your passport before proceeding.");
+        return false;
+      }
+      return true;
+      
+    default:
+      return true;
+  }
+};
+
+// Update the handleNext function
 const handleNext = async (e) => {
-  e.preventDefault(); // Prevent default form submission
-  await saveProgress();
-  setCurrentStep(currentStep + 1);
+  e.preventDefault();
+  
+  // Validate current step
+  if (!validateCurrentStep()) {
+    return;
+  }
+  
+  setIsLoading(true);
+  try {
+    await saveProgress();
+    setCurrentStep(currentStep + 1);
+  } catch (error) {
+    console.error('Error saving progress:', error);
+    alert('There was an error saving your progress. Please try again.');
+  } finally {
+    setIsLoading(false);
+  }
 };
 
 
@@ -474,7 +553,7 @@ const startNewRegistration = () => {
                     name="state"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>State of Formation</FormLabel>
+                         <RequiredLabel>State of Formation</RequiredLabel>
                         <FormControl>
                         <Select 
   value={field.value}
@@ -536,7 +615,7 @@ const startNewRegistration = () => {
                     name="companyName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Company Name</FormLabel>
+                        <RequiredLabel>Company Name</RequiredLabel>
                         <FormControl>
                           <Input 
                             {...field}
@@ -555,7 +634,7 @@ const startNewRegistration = () => {
                     name="companyType"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Company Type</FormLabel>
+                        <RequiredLabel>Company Type</RequiredLabel>
                         <FormControl>
                           <Select 
                             disabled
@@ -579,7 +658,7 @@ const startNewRegistration = () => {
                     name="category"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Business Category</FormLabel>
+                        <RequiredLabel>Business Category</RequiredLabel>
                         <FormControl>
                           <Select 
                             value={field.value}
@@ -672,7 +751,7 @@ const startNewRegistration = () => {
                             name={`owners.${index}.fullName`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Full Name</FormLabel>
+                                <RequiredLabel>Full Name</RequiredLabel>
                                 <FormControl>
                                   <Input 
                                     {...field}
@@ -687,7 +766,7 @@ const startNewRegistration = () => {
                             name={`owners.${index}.ownershipPercentage`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Ownership Percentage</FormLabel>
+                                <RequiredLabel>Ownership Percentage</RequiredLabel>
                                 <div className="flex items-center">
                                   <FormControl>
                                     <Input 
@@ -739,7 +818,7 @@ const startNewRegistration = () => {
                       name="address.street"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Street Address</FormLabel>
+                          <RequiredLabel>Street Address</RequiredLabel>
                           <FormControl>
                             <Input 
                               {...field}
@@ -755,7 +834,7 @@ const startNewRegistration = () => {
                       name="address.city"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>City</FormLabel>
+                          <RequiredLabel>City</RequiredLabel>
                           <FormControl>
                             <Input 
                               {...field}
@@ -772,7 +851,7 @@ const startNewRegistration = () => {
                         name="address.state"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>State/Province/Region</FormLabel>
+                            <RequiredLabel>State/Province/Region</RequiredLabel>
                             <FormControl>
                               <Input 
                                 {...field}
@@ -787,7 +866,7 @@ const startNewRegistration = () => {
                         name="address.postalCode"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Postal Code</FormLabel>
+                            <RequiredLabel>Postal Code</RequiredLabel>
                             <FormControl>
                               <Input 
                                 {...field}
@@ -804,7 +883,7 @@ const startNewRegistration = () => {
                       name="address.country"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Country</FormLabel>
+                          <RequiredLabel>Country</RequiredLabel>
                           <FormControl>
                             <Select 
                               value={field.value}
@@ -868,7 +947,7 @@ const startNewRegistration = () => {
           
                       {/* Separate file upload component */}
                       <FormItem>
-                        <FormLabel>Upload Passport</FormLabel>
+                      <RequiredLabel>Upload Passport</RequiredLabel>
                         <FormControl>
                           <div className="flex flex-col">
                             <Button 
@@ -1041,58 +1120,102 @@ const startNewRegistration = () => {
             return null;
         }
       };
-    
-      return (
-        <div className="max-w-4xl mx-auto p-4">
-          <Card className="w-full">
-            {renderStep()}
-            <CardFooter className="flex justify-between pt-6">
-      <div>
-        {currentStep > 1 && (
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={handleBack}
-            disabled={isLoading}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-        )}
+    // In your return statement, wrap the entire component with a loading state
+return (
+  <div className="max-w-4xl mx-auto p-4">
+    {isLoading && (
+      <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+        <div className="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+          <p className="text-gray-600">Processing your request...</p>
+        </div>
       </div>
-      <div className="space-x-2">
+    )}
+    
+<Card className="w-full shadow-md">
+  {/* Mobile step indicator */}
+  <div className="md:hidden px-4 pt-4 pb-2">
+    <div className="flex justify-between items-center">
+      <div className="text-sm font-medium text-gray-500">
+        Step {currentStep} of 6
+      </div>
+      <Badge variant="outline" className="font-normal">
+        {currentStep === 1 ? 'State Selection' :
+         currentStep === 2 ? 'Company Info' :
+         currentStep === 3 ? 'Ownership' :
+         currentStep === 4 ? 'Address' :
+         currentStep === 5 ? 'Documents' : 'Review'}
+      </Badge>
+    </div>
+  </div>
+  
+  {/* Desktop progress bar */}
+  <div className="hidden md:block relative pt-4 px-4">
+    <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
+      <div style={{ width: `${(currentStep / 6) * 100}%` }} 
+           className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-300">
+      </div>
+    </div>
+    <div className="flex justify-between text-xs text-gray-500">
+      <span>Start</span>
+      <span>Complete</span>
+    </div>
+  </div>
+  
+  {renderStep()}
+  <CardFooter className="flex justify-between pt-6 border-t">
+    <div>
+      {currentStep > 1 && (
         <Button 
           type="button" 
-          variant="secondary" 
-          onClick={handleSaveAndExit}
+          variant="outline" 
+          onClick={handleBack}
           disabled={isLoading}
+          className="border-gray-300 hover:bg-gray-50"
         >
-          Save & Exit
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          <span className="hidden sm:inline">Back</span>
         </Button>
-        
-        {currentStep < 6 ? (
-          <Button 
-            type="button" 
-            onClick={handleNext}
-            disabled={isLoading}
-          >
-            Next
-            <ArrowRight className="h-4 w-4 ml-2" />
-          </Button>
-        ) : (
-          <Button 
-            type="button" 
-            onClick={handleSubmit}
-            disabled={isLoading}
-          >
-            Proceed to Payment
-          </Button>
-        )}
-      </div>
-    </CardFooter>
-      </Card>
+      )}
     </div>
-  );
+    <div className="space-x-2">
+      <Button 
+        type="button" 
+        variant="secondary" 
+        onClick={handleSaveAndExit}
+        disabled={isLoading}
+        className="bg-gray-100 hover:bg-gray-200 text-gray-800 sm:px-4 px-2"
+      >
+        <span className="sm:inline hidden">Save & Exit</span>
+        <span className="sm:hidden inline">Save</span>
+      </Button>
+      
+      {currentStep < 6 ? (
+        <Button 
+          type="button" 
+          onClick={handleNext}
+          disabled={isLoading}
+          className="bg-blue-600 hover:bg-blue-700 sm:px-4 px-2"
+        >
+          <span className="sm:inline hidden">Next</span>
+          <ArrowRight className="h-4 w-4 sm:ml-2" />
+        </Button>
+      ) : (
+        <Button 
+          type="button" 
+          onClick={handleSubmit}
+          disabled={isLoading}
+          className="bg-green-600 hover:bg-green-700 sm:px-4 px-2 whitespace-nowrap"
+        >
+          <span className="sm:inline hidden">Proceed to Payment</span>
+          <span className="sm:hidden inline">Pay Now</span>
+        </Button>
+      )}
+    </div>
+  </CardFooter>
+</Card>
+  </div>
+);
 };
 
 export default LLCRegistrationForm;
