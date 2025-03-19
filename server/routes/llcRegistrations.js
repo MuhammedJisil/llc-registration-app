@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const {pool} = require('../config/db');
-const upload = require('../middleware/fileUpload');
 const jwt = require("jsonwebtoken");
 const PDFDocument = require('pdfkit');
+const { upload, deleteFile, getPublicIdFromUrl, cloudinary } = require('../middleware/fileUpload');
 
 const { authenticateToken } = require('../middleware/auth');
 
@@ -56,84 +56,85 @@ router.post('/llc-registrations', authenticateToken, upload.fields([
     }
     
     // Check if there's an existing registration ID in the request
-const registrationId = formData.id;
-let result;
-let newRegistrationId;
+    const registrationId = formData.id;
+    let result;
+    let newRegistrationId;
 
-if (registrationId) {
-  // Only update if explicitly requested to update
-  if (formData.updateExisting) {
-    // First check if the registration exists
-    const checkResult = await client.query(
-      'SELECT id FROM llc_registrations WHERE id = $1 AND user_id = $2',
-      [registrationId, userId]
-    );
-    
-    if (checkResult.rows.length > 0) {
-      // Update existing registration
-      result = await client.query(
-        `UPDATE llc_registrations 
-         SET company_name = $1, company_type = $2, category_id = $3, 
-             state = $4, filing_fee = $5, status = $6, current_step = $7, 
-             payment_status = $8, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $9 AND user_id = $10
-         RETURNING id`,
-        [companyName, companyType, categoryId, state, stateAmount, status, step, paymentStatus, registrationId, userId]
-      );
-      newRegistrationId = registrationId;
+    if (registrationId) {
+      // Only update if explicitly requested to update
+      if (formData.updateExisting) {
+        // First check if the registration exists
+        const checkResult = await client.query(
+          'SELECT id FROM llc_registrations WHERE id = $1 AND user_id = $2',
+          [registrationId, userId]
+        );
+        
+        if (checkResult.rows.length > 0) {
+          // Update existing registration
+          result = await client.query(
+            `UPDATE llc_registrations 
+             SET company_name = $1, company_type = $2, category_id = $3, 
+                 state = $4, filing_fee = $5, status = $6, current_step = $7, 
+                 payment_status = $8, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $9 AND user_id = $10
+             RETURNING id`,
+            [companyName, companyType, categoryId, state, stateAmount, status, step, paymentStatus, registrationId, userId]
+          );
+          newRegistrationId = registrationId;
+        } else {
+          // Registration ID provided but doesn't exist in database
+          // Create new registration with the provided ID
+          result = await client.query(
+            `INSERT INTO llc_registrations 
+             (id, user_id, company_name, company_type, category_id, state, filing_fee, status, current_step, payment_status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+             RETURNING id`,
+            [registrationId, userId, companyName, companyType, categoryId, state, stateAmount, status, step, paymentStatus]
+          );
+          newRegistrationId = result.rows[0].id;
+        }
+      } else {
+        // Create new registration even though ID was provided
+        result = await client.query(
+          `INSERT INTO llc_registrations 
+           (user_id, company_name, company_type, category_id, state, filing_fee, status, current_step, payment_status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING id`,
+          [userId, companyName, companyType, categoryId, state, stateAmount, status, step, paymentStatus]
+        );
+        newRegistrationId = result.rows[0].id;
+      }
     } else {
-      // Registration ID provided but doesn't exist in database
-      // Create new registration with the provided ID
+      // Create new registration with auto-generated ID
       result = await client.query(
         `INSERT INTO llc_registrations 
-         (id, user_id, company_name, company_type, category_id, state, filing_fee, status, current_step, payment_status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         (user_id, company_name, company_type, category_id, state, filing_fee, status, current_step, payment_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id`,
-        [registrationId, userId, companyName, companyType, categoryId, state, stateAmount, status, step, paymentStatus]
+        [userId, companyName, companyType, categoryId, state, stateAmount, status, step, paymentStatus]
       );
       newRegistrationId = result.rows[0].id;
     }
-  } else {
-    // Create new registration even though ID was provided
-    result = await client.query(
-      `INSERT INTO llc_registrations 
-       (user_id, company_name, company_type, category_id, state, filing_fee, status, current_step, payment_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id`,
-      [userId, companyName, companyType, categoryId, state, stateAmount, status, step, paymentStatus]
-    );
-    newRegistrationId = result.rows[0].id;
-  }
-} else {
-  // ✅ Create new registration with auto-generated ID
-  result = await client.query(
-    `INSERT INTO llc_registrations 
-     (user_id, company_name, company_type, category_id, state, filing_fee, status, current_step, payment_status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     RETURNING id`,
-    [userId, companyName, companyType, categoryId, state, stateAmount, status, step, paymentStatus]
-  );
-  newRegistrationId = result.rows[0].id;
-}
- // Handle owners if provided
-if (owners && owners.length > 0) {
-  // Delete existing owners for this registration
-  if (registrationId) {
-    await client.query('DELETE FROM llc_owners WHERE registration_id = $1', [newRegistrationId]);
-  }
-  
-  // Insert new owners
-  for (const owner of owners) {
-    // Convert empty ownership percentage to 0
-    const ownershipPercentage = owner.ownershipPercentage === '' ? 0 : parseFloat(owner.ownershipPercentage);
     
-    await client.query(
-      `INSERT INTO llc_owners (registration_id, full_name, ownership_percentage)
-       VALUES ($1, $2, $3)`,
-      [newRegistrationId, owner.fullName, ownershipPercentage]
-    );
-  }
-}
+    // Handle owners if provided
+    if (owners && owners.length > 0) {
+      // Delete existing owners for this registration
+      if (registrationId) {
+        await client.query('DELETE FROM llc_owners WHERE registration_id = $1', [newRegistrationId]);
+      }
+      
+      // Insert new owners
+      for (const owner of owners) {
+        // Convert empty ownership percentage to 0
+        const ownershipPercentage = owner.ownershipPercentage === '' ? 0 : parseFloat(owner.ownershipPercentage);
+        
+        await client.query(
+          `INSERT INTO llc_owners (registration_id, full_name, ownership_percentage)
+           VALUES ($1, $2, $3)`,
+          [newRegistrationId, owner.fullName, ownershipPercentage]
+        );
+      }
+    }
     
     // Handle address if provided
     if (address && address.street) {
@@ -168,51 +169,77 @@ if (owners && owners.length > 0) {
       const idDocument = req.files.idDocument[0];
       const idType = req.body.idType || 'passport'; // Default to passport if not specified
       
+      // Get the Cloudinary URL from the file object
+      const idDocumentUrl = idDocument.path;
+      
       // Check if document already exists
       const docResult = await client.query(
-        'SELECT id FROM identification_documents WHERE registration_id = $1 AND document_type = $2',
+        'SELECT id, file_path FROM identification_documents WHERE registration_id = $1 AND document_type = $2',
         [newRegistrationId, 'id_proof']
       );
       
       if (docResult.rows.length > 0) {
-        // Update existing document
+        // Delete the old file from Cloudinary
+        const oldFilePath = docResult.rows[0].file_path;
+        const publicId = getPublicIdFromUrl(oldFilePath);
+        if (publicId) {
+          await deleteFile(publicId);
+        }
+        
+        // Update existing document with Cloudinary URL
         await client.query(
           `UPDATE identification_documents 
            SET file_path = $1, file_name = $2, id_type = $3, updated_at = CURRENT_TIMESTAMP
            WHERE registration_id = $4 AND document_type = $5`,
-          [idDocument.path, idDocument.filename, idType, newRegistrationId, 'id_proof']
+          [idDocumentUrl, idDocument.originalname, idType, newRegistrationId, 'id_proof']
         );
       } else {
-        // Insert new document
+        // Insert new document with Cloudinary URL
         await client.query(
           `INSERT INTO identification_documents 
            (registration_id, document_type, file_path, file_name, id_type)
            VALUES ($1, $2, $3, $4, $5)`,
-          [newRegistrationId, 'id_proof', idDocument.path, idDocument.filename, idType]
+          [newRegistrationId, 'id_proof', idDocumentUrl, idDocument.originalname, idType]
         );
       }
     }
     
     // Handle additional documents
-if (req.files && req.files.additionalDocuments && req.files.additionalDocuments.length > 0) {
-  // If updating, remove old additional documents from the DB
-  if (registrationId) {
-    await client.query(
-      'DELETE FROM identification_documents WHERE registration_id = $1 AND document_type = $2',
-      [newRegistrationId, 'additional']
-    );
-  }
-  
-  // Insert each additional document
-  for (const additionalDoc of req.files.additionalDocuments) {
-    await client.query(
-      `INSERT INTO identification_documents 
-       (registration_id, document_type, file_path, file_name)
-       VALUES ($1, $2, $3, $4)`,
-      [newRegistrationId, 'additional', additionalDoc.path, additionalDoc.filename]
-    );
-  }
-}
+    if (req.files && req.files.additionalDocuments && req.files.additionalDocuments.length > 0) {
+      // If updating, delete old additional documents from Cloudinary and DB
+      if (registrationId) {
+        const oldDocsResult = await client.query(
+          'SELECT id, file_path FROM identification_documents WHERE registration_id = $1 AND document_type = $2',
+          [newRegistrationId, 'additional']
+        );
+        
+        // Delete each old document from Cloudinary
+        for (const oldDoc of oldDocsResult.rows) {
+          const publicId = getPublicIdFromUrl(oldDoc.file_path);
+          if (publicId) {
+            await deleteFile(publicId);
+          }
+        }
+        
+        // Delete old documents from DB
+        await client.query(
+          'DELETE FROM identification_documents WHERE registration_id = $1 AND document_type = $2',
+          [newRegistrationId, 'additional']
+        );
+      }
+      
+      // Insert each additional document with Cloudinary URL
+      for (const additionalDoc of req.files.additionalDocuments) {
+        const documentUrl = additionalDoc.path;
+        
+        await client.query(
+          `INSERT INTO identification_documents 
+           (registration_id, document_type, file_path, file_name)
+           VALUES ($1, $2, $3, $4)`,
+          [newRegistrationId, 'additional', documentUrl, additionalDoc.originalname]
+        );
+      }
+    }
     
     await client.query('COMMIT');
     
@@ -228,6 +255,8 @@ if (req.files && req.files.additionalDocuments && req.files.additionalDocuments.
     client.release();
   }
 });
+
+
 
 router.get('/llc-applications', async (req, res) => {
   try {
@@ -404,8 +433,7 @@ router.get('/llc-registrations/:id', async (req, res) => {
   }
 });
 
-
-// Backend - Add this route to your API routes file
+// the delete route to also delete files from Cloudinary
 router.delete('/llc-registrations/:id', async (req, res) => {
   const { id } = req.params;
   // Extract user ID from token or query params for security check
@@ -426,7 +454,21 @@ router.delete('/llc-registrations/:id', async (req, res) => {
       return res.status(403).json({ error: 'You do not have permission to delete this registration' });
     }
 
-    // Delete additional documents
+    // Get all documents to delete from Cloudinary
+    const documentsResult = await pool.query(
+      'SELECT id, file_path FROM identification_documents WHERE registration_id = $1',
+      [id]
+    );
+
+    // Delete files from Cloudinary
+    for (const doc of documentsResult.rows) {
+      const publicId = getPublicIdFromUrl(doc.file_path);
+      if (publicId) {
+        await deleteFile(publicId);
+      }
+    }
+
+    // Delete additional documents from database
     await pool.query(
       'DELETE FROM identification_documents WHERE registration_id = $1',
       [id]

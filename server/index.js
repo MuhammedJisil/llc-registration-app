@@ -50,7 +50,7 @@ app.use('/api',  require('./routes/states'));
 app.use('/api',  require('./routes/categories'));
 app.use('/api',  require('./routes/llcRegistrations'));
 app.use('/api', require('./routes/documents'));
-
+app.use('/api/payments', require('./routes/payments'));
 
 // Start server
 app.listen(PORT, () => {

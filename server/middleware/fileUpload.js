@@ -1,33 +1,41 @@
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-// Create upload directories if they don't exist
-const uploadsDir = path.join(__dirname, '../uploads');
-const idDocumentsDir = path.join(uploadsDir, 'id_documents');
-const additionalDocsDir = path.join(uploadsDir, 'additional_documents');
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
-if (!fs.existsSync(idDocumentsDir)) fs.mkdirSync(idDocumentsDir);
-if (!fs.existsSync(additionalDocsDir)) fs.mkdirSync(additionalDocsDir);
-
-// Configure file storage for uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    // Determine directory based on field name
-    if (file.fieldname === 'idDocument') {
-      cb(null, idDocumentsDir);
-    } else if (file.fieldname.startsWith('additionalDocument')) {
-      cb(null, additionalDocsDir);
-    } else {
-      cb(null, uploadsDir);
-    }
-  },
-  filename: function (req, file, cb) {
-    // Generate unique filename with timestamp
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const extension = path.extname(file.originalname);
-    cb(null, file.fieldname + '-' + uniqueSuffix + extension);
+// Create storage engine for Cloudinary
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: (req, file) => {
+      // Determine folder based on field name
+      if (file.fieldname === 'idDocument') {
+        return 'id_documents';
+      } else if (file.fieldname === 'additionalDocuments') {
+        return 'additional_documents';
+      } else {
+        return 'uploads';
+      }
+    },
+    // Use the original filename as part of the public_id
+    public_id: (req, file) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const filename = path.parse(file.originalname).name;
+      return `${filename}-${uniqueSuffix}`;
+    },
+    // Set allowed formats
+    allowed_formats: ['jpg', 'jpeg', 'png', 'pdf'],
+    // Set resource type to auto to handle different file types
+    resource_type: 'auto',
+    // Transform for images (optional)
+    transformation: [{ width: 1000, crop: "limit" }]
   }
 });
 
@@ -49,4 +57,45 @@ const upload = multer({
   }
 });
 
-module.exports = upload;
+// Function to delete file from Cloudinary
+const deleteFile = async (publicId) => {
+  try {
+    if (!publicId) return { success: false, message: 'No public ID provided' };
+    
+    const result = await cloudinary.uploader.destroy(publicId);
+    return { success: result.result === 'ok', message: result.result };
+  } catch (error) {
+    console.error('Error deleting file from Cloudinary:', error);
+    return { success: false, message: error.message };
+  }
+};
+
+// Extract public ID from Cloudinary URL
+const getPublicIdFromUrl = (url) => {
+  if (!url) return null;
+  
+  try {
+    // URL format: https://res.cloudinary.com/cloud-name/image/upload/v1234567890/folder/filename.ext
+    // Extract the part after the last '/' and before the file extension
+    const splitUrl = url.split('/');
+    const fileWithExtension = splitUrl[splitUrl.length - 1];
+    const fileWithoutExtension = fileWithExtension.split('.')[0];
+    
+    // Get the folder path (excluding the version segment)
+    const versionSegmentIndex = splitUrl.findIndex(segment => segment.startsWith('v') && /^v\d+$/.test(segment));
+    const folderPath = splitUrl.slice(versionSegmentIndex + 1, -1).join('/');
+    
+    // Combine folder path and filename without extension
+    return folderPath ? `${folderPath}/${fileWithoutExtension}` : fileWithoutExtension;
+  } catch (error) {
+    console.error('Error extracting public ID from URL:', error);
+    return null;
+  }
+};
+
+module.exports = {
+  upload,
+  deleteFile,
+  getPublicIdFromUrl,
+  cloudinary
+};

@@ -215,33 +215,51 @@ useEffect(() => {
     form.setValue('owners', updatedOwners);
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const fileUrl = URL.createObjectURL(file);
-      setPreviewUrl(fileUrl);
-      
-      form.setValue('identificationDocuments.idFile', file);
-      form.setValue('identificationDocuments.idFileName', file.name);
+ // Updated handleFileUpload function
+const handleFileUpload = (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    // Create a local preview URL
+    const fileUrl = URL.createObjectURL(file);
+    setPreviewUrl(fileUrl);
+    
+    // Save file reference to form state
+    form.setValue('identificationDocuments.idFile', file);
+    form.setValue('identificationDocuments.idFileName', file.name);
+    
+    // Display the file preview
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setPreviewUrl(event.target.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // For PDFs or other non-image files, show a generic icon/preview
+      setPreviewUrl(null); // Clear image preview for PDFs
     }
-  };
+  }
+};
 
-  const handleAdditionalDocumentUpload = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length > 0) {
-      const currentDocs = form.getValues('identificationDocuments.additionalDocuments');
-      const updatedAdditionalDocs = [
-        ...currentDocs,
-        ...files.map(file => ({
-          file,
-          fileName: file.name
-        }))
-      ];
-      
-      form.setValue('identificationDocuments.additionalDocuments', updatedAdditionalDocs);
-    }
-  };
-
+// Updated handleAdditionalDocumentUpload function
+const handleAdditionalDocumentUpload = (e) => {
+  const files = Array.from(e.target.files);
+  if (files.length > 0) {
+    const currentDocs = form.getValues('identificationDocuments.additionalDocuments') || [];
+    
+    // Create updated list with new files
+    const updatedAdditionalDocs = [
+      ...currentDocs,
+      ...files.map(file => ({
+        file,
+        fileName: file.name,
+        preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null
+      }))
+    ];
+    
+    form.setValue('identificationDocuments.additionalDocuments', updatedAdditionalDocs);
+  }
+};
   const removeAdditionalDocument = (index) => {
     const currentDocs = form.getValues('identificationDocuments.additionalDocuments');
     const updatedDocs = currentDocs.filter((_, i) => i !== index);
@@ -272,11 +290,11 @@ const saveProgress = async (shouldUpdateExisting = true) => {
     // Get the existing registrationId if available - make it user-specific
     const registrationId = localStorage.getItem(`registrationId_${userId}`);
     
-    // Append non-file data as JSON
+    // Prepare JSON data for non-file fields
     const jsonData = {
       id: registrationId, // Include the ID if it exists
       userId,
-      updateExisting: shouldUpdateExisting, // Add this flag
+      updateExisting: shouldUpdateExisting,
       state: formValues.state,
       stateAmount: parseFloat(stateAmount) || 0,
       companyName: formValues.companyName,
@@ -286,24 +304,44 @@ const saveProgress = async (shouldUpdateExisting = true) => {
       address: formValues.address,
       status: 'draft',
       step: currentStep,
-      paymentStatus: formValues.paymentStatus
+      paymentStatus: formValues.paymentStatus,
+      // Add metadata about the files but don't include the actual file objects
+      identificationDocuments: {
+        idType: formValues.identificationDocuments.idType,
+        idFileName: formValues.identificationDocuments.idFileName,
+        // Don't include the file itself here
+        additionalDocuments: formValues.identificationDocuments.additionalDocuments.map(doc => ({
+          fileName: doc.fileName
+          // Don't include the file itself here
+        }))
+      }
     };
     
+    // Convert the JSON data to a string and append it to the FormData
     formData.append('data', JSON.stringify(jsonData));
     
-    // Append ID document if it exists
+    // Append ID document if it exists - using the field name that matches your backend
     if (formValues.identificationDocuments.idFile) {
       formData.append('idDocument', formValues.identificationDocuments.idFile);
-      formData.append('idType', formValues.identificationDocuments.idType);
     }
     
-    // Append additional documents if they exist
+    // Append additional documents using the field name that matches your backend
     if (formValues.identificationDocuments.additionalDocuments && 
-    formValues.identificationDocuments.additionalDocuments.length > 0) {
-  formValues.identificationDocuments.additionalDocuments.forEach((doc) => {
-    formData.append('additionalDocuments', doc.file);
-  });
-}
+        formValues.identificationDocuments.additionalDocuments.length > 0) {
+      formValues.identificationDocuments.additionalDocuments.forEach((doc) => {
+        if (doc.file) {
+          formData.append('additionalDocuments', doc.file);
+        }
+      });
+    }
+    
+    // Include any existing file paths that might have come from the server
+    if (formValues.identificationDocuments.idFilePath) {
+      formData.append('idFilePath', formValues.identificationDocuments.idFilePath);
+    }
+    
+    // Log the form data keys for debugging (don't log the actual files)
+    console.log('FormData keys:', Array.from(formData.keys()));
     
     // Send the request
     const response = await axios.post(`${BASE_URL}/api/llc-registrations`, formData, {
@@ -312,6 +350,28 @@ const saveProgress = async (shouldUpdateExisting = true) => {
         'Authorization': `Bearer ${token}`,
       }
     });
+    
+    // If response contains file paths from Cloudinary, update form state
+    if (response.data) {
+      if (response.data.identificationDocuments?.idFilePath) {
+        form.setValue('identificationDocuments.idFilePath', response.data.identificationDocuments.idFilePath);
+        // Update preview URL if we received a new one
+        setPreviewUrl(response.data.identificationDocuments.idFilePath);
+      }
+      
+      // Handle additional documents paths if returned
+      if (response.data.identificationDocuments?.additionalDocuments) {
+        const updatedDocs = response.data.identificationDocuments.additionalDocuments.map(doc => ({
+          ...doc,
+          // Preserve the file object if it exists in our current state
+          file: formValues.identificationDocuments.additionalDocuments.find(
+            d => d.fileName === doc.fileName
+          )?.file || null
+        }));
+        
+        form.setValue('identificationDocuments.additionalDocuments', updatedDocs);
+      }
+    }
     
     // Store registration ID for future updates - make it user-specific
     if (response.data.id && !localStorage.getItem(`registrationId_${userId}`)) {
@@ -947,82 +1007,149 @@ const startNewRegistration = () => {
           
                       {/* Separate file upload component */}
                       <FormItem>
-                      <RequiredLabel>Upload Passport</RequiredLabel>
-                        <FormControl>
-                          <div className="flex flex-col">
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              className="flex items-center justify-center h-24 w-full"
-                              onClick={(e) => {
-                                e.preventDefault(); // Prevent form submission
-                                document.getElementById('idFileUpload').click();
-                              }}
-                            >
-                              <Upload className="h-6 w-6 mr-2" />
-                              Click to upload
-                            </Button>
-                            <Input 
-                              id="idFileUpload"
-                              type="file" 
-                              className="hidden" 
-                              accept=".jpg,.jpeg,.png,.pdf"
-                              onChange={handleFileUpload}
-                            />
-                          </div>
-                        </FormControl>
-                      </FormItem>
+  <RequiredLabel>Upload Passport</RequiredLabel>
+  <FormControl>
+    <div className="flex flex-col space-y-3">
+      <Button 
+        type="button" 
+        variant="outline" 
+        className="flex items-center justify-center h-24 w-full"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById('idFileUpload').click();
+        }}
+      >
+        <Upload className="h-6 w-6 mr-2" />
+        {formValues.identificationDocuments.idFileName ? 'Change file' : 'Click to upload'}
+      </Button>
+      <Input 
+        id="idFileUpload"
+        type="file" 
+        className="hidden" 
+        accept=".jpg,.jpeg,.png,.pdf"
+        onChange={handleFileUpload}
+      />
+      
+      {/* Document preview section */}
+      {formValues.identificationDocuments.idFileName && (
+        <div className="p-3 border rounded-md">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center">
+              <div className="w-10 h-10 flex items-center justify-center bg-blue-100 rounded-md mr-3">
+                {previewUrl && formValues.identificationDocuments.idFileName.match(/\.(jpg|jpeg|png)$/i) ? (
+                  <img 
+                    src={previewUrl} 
+                    alt="ID Preview" 
+                    className="max-h-10 max-w-10 object-cover rounded"
+                  />
+                ) : (
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium truncate max-w-xs">{formValues.identificationDocuments.idFileName}</p>
+                <p className="text-xs text-gray-500">
+                  {/* Show file size if available */}
+                  {formValues.identificationDocuments.idFile && 
+                    `${(formValues.identificationDocuments.idFile.size / (1024 * 1024)).toFixed(2)} MB`}
+                </p>
+              </div>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                form.setValue('identificationDocuments.idFile', null);
+                form.setValue('identificationDocuments.idFileName', '');
+                setPreviewUrl(null);
+              }}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  </FormControl>
+  <FormDescription>
+    Upload a clear image or PDF of your passport. Maximum file size: 5MB.
+  </FormDescription>
+  <FormMessage />
+</FormItem>
           
-                      <FormItem>
-                        <FormLabel>Additional Supporting Documents (Optional)</FormLabel>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 w-full flex flex-col items-center justify-center relative">
-                          <Upload className="h-6 w-6 text-gray-400 mb-2" />
-                          <p className="text-sm text-gray-500 text-center">
-                            Upload any additional documents if required
-                          </p>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="absolute inset-0 w-full h-full opacity-0"
-                            onClick={(e) => {
-                              e.preventDefault(); // Prevent form submission
-                              document.getElementById('additionalDocs').click();
-                            }}
-                          />
-                          <Input 
-                            id="additionalDocs"
-                            type="file" 
-                            className="hidden" 
-                            accept=".jpg,.jpeg,.png,.pdf"
-                            multiple
-                            onChange={handleAdditionalDocumentUpload}
-                          />
-                        </div>
-                      </FormItem>
+                      {/* Updated Additional Documents Section */}
+<FormItem>
+  <FormLabel>Additional Supporting Documents (Optional)</FormLabel>
+  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 w-full flex flex-col items-center justify-center relative">
+    <Upload className="h-6 w-6 text-gray-400 mb-2" />
+    <p className="text-sm text-gray-500 text-center">
+      Upload any additional documents if required
+    </p>
+    <p className="text-xs text-gray-400 text-center mt-1">
+      JPG, PNG, or PDF (max 5MB each)
+    </p>
+    <Button
+      type="button"
+      variant="ghost"
+      className="absolute inset-0 w-full h-full opacity-0"
+      onClick={(e) => {
+        e.preventDefault();
+        document.getElementById('additionalDocs').click();
+      }}
+    />
+    <Input 
+      id="additionalDocs"
+      type="file" 
+      className="hidden" 
+      accept=".jpg,.jpeg,.png,.pdf"
+      multiple
+      onChange={handleAdditionalDocumentUpload}
+    />
+  </div>
+</FormItem>
           
-                      {formValues.identificationDocuments.additionalDocuments.length > 0 && (
-                        <div className="border rounded-md p-4">
-                          <h4 className="font-medium mb-2">Additional Documents</h4>
-                          <div className="space-y-2">
-                            {formValues.identificationDocuments.additionalDocuments.map((doc, index) => (
-                              <div key={index} className="flex justify-between items-center">
-                                <p className="text-sm truncate max-w-xs">{doc.fileName}</p>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault(); // Prevent form submission
-                                    removeAdditionalDocument(index);
-                                  }}
-                                >
-                                  <MinusCircle className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+{formValues.identificationDocuments.additionalDocuments.length > 0 && (
+  <div className="border rounded-md p-4">
+    <h4 className="font-medium mb-2">Additional Documents</h4>
+    <div className="space-y-2">
+      {formValues.identificationDocuments.additionalDocuments.map((doc, index) => (
+        <div key={index} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-md transition-colors">
+          <div className="flex items-center">
+            <div className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-md mr-3">
+              {doc.preview && doc.fileName.match(/\.(jpg|jpeg|png)$/i) ? (
+                <img 
+                  src={doc.preview} 
+                  alt="Document Preview" 
+                  className="max-h-8 max-w-8 object-cover rounded"
+                />
+              ) : (
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              )}
+            </div>
+            <p className="text-sm truncate max-w-xs">{doc.fileName}</p>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              removeAdditionalDocument(index);
+            }}
+          >
+            <MinusCircle className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
                     </div>
                   </Form>
                 </CardContent>
