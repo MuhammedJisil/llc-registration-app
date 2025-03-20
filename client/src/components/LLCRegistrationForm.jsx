@@ -557,26 +557,34 @@ const startNewRegistration = () => {
 };
 
 
-  const handleSubmit = async () => {
-    setIsLoading(true);
-    try {
-      await saveProgress();
-      const token = localStorage.getItem('token');
-      const decodedToken = jwtDecode(token);
-      const userId = decodedToken.id;
-      
-      navigate('/payment', { 
-        state: { 
-          amount: formValues.stateAmount, 
-          registrationId: localStorage.getItem(`registrationId_${userId}`) 
-        } 
-      });
-    } catch (error) {
-      console.error('Error submitting form:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+const handleSubmit = async () => {
+  setIsLoading(true);
+  try {
+    await saveProgress();
+    const token = localStorage.getItem('token');
+    const decodedToken = jwtDecode(token);
+    const userId = decodedToken.id;
+    
+    // Initialize the payment with your backend
+    const response = await axios.post(`${BASE_URL}/api/payments/initialize`, {
+      registrationId: localStorage.getItem(`registrationId_${userId}`),
+      amount: formValues.stateAmount
+    }, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    
+    // Redirect to the Stripe checkout page with client secret
+    navigate(`/stripe-checkout/${response.data.paymentId}?clientSecret=${response.data.clientSecret}`);
+  } catch (error) {
+    console.error('Error submitting form:', error);
+    // Show error message to user
+    // ...
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleSaveAndExit = async () => {
     try {

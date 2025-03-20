@@ -100,61 +100,57 @@ router.post('/complete', async (req, res) => {
 });
 
 // Special raw body parser middleware specifically for Stripe webhooks
-const stripeWebhookHandler = router.post(
-  '/stripe-webhook', 
-  bodyParser.raw({ type: 'application/json' }), 
-  async (req, res) => {
-    const sig = req.headers['stripe-signature'];
-    let event;
+router.post('/stripe-webhook', bodyParser.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
 
-    try {
-      event = stripe.webhooks.constructEvent(
-        req.body,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET
-      );
-    } catch (err) {
-      console.error(`Webhook Error: ${err.message}`);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    // Handle the event
-    if (event.type === 'payment_intent.succeeded') {
-      const paymentIntent = event.data.object;
-      
-      // Extract registration ID from metadata
-      const { paymentId, registrationId } = paymentIntent.metadata;
-      
-      // Update payment status
-      await pool.query(
-        `UPDATE payments 
-         SET status = 'successful', updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1`,
-        [paymentId]
-      );
-      
-      // Update registration status
-      await pool.query(
-        `UPDATE llc_registrations 
-         SET status = 'paid', updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1`,
-        [registrationId]
-      );
-    } else if (event.type === 'payment_intent.payment_failed') {
-      const paymentIntent = event.data.object;
-      const { paymentId } = paymentIntent.metadata;
-      
-      // Update payment status
-      await pool.query(
-        `UPDATE payments 
-         SET status = 'failed', updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1`,
-        [paymentId]
-      );
-    }
-
-    res.status(200).json({ received: true });
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error(`Webhook Error: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
   }
-);
+
+  // Handle the event
+  if (event.type === 'payment_intent.succeeded') {
+    const paymentIntent = event.data.object;
+    
+    // Extract registration ID from metadata
+    const { paymentId, registrationId } = paymentIntent.metadata;
+    
+    // Update payment status
+    await pool.query(
+      `UPDATE payments 
+       SET status = 'successful', updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [paymentId]
+    );
+    
+    // Update registration status
+    await pool.query(
+      `UPDATE llc_registrations 
+       SET status = 'paid', updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [registrationId]
+    );
+  } else if (event.type === 'payment_intent.payment_failed') {
+    const paymentIntent = event.data.object;
+    const { paymentId } = paymentIntent.metadata;
+    
+    // Update payment status
+    await pool.query(
+      `UPDATE payments 
+       SET status = 'failed', updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [paymentId]
+    );
+  }
+
+  res.status(200).json({ received: true });
+});
 
 module.exports = router;

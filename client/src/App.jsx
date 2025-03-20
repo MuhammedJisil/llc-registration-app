@@ -29,7 +29,7 @@ function App() {
           <Route path="/reset-password/:token" element={<ResetPassword />} /> 
           <Route path="/dashboard" element={<Dashboard/>} /> 
           <Route path="/register-llc" element={<LLCRegistrationForm />} />
-          <Route path="/checkout/:id" element={<StripeCheckout />} />
+          <Route path="/stripe-checkout/:id" element={<StripeCheckout />} />
           <Route path="/payment-confirmation/:id" element={<PaymentConfirmation />} />
           
         </Routes>

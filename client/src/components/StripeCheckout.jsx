@@ -14,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { Loader2 } from "lucide-react";
+import { BASE_URL } from '@/lib/config';
+import { jwtDecode } from 'jwt-decode'; 
 
 // Replace with your Stripe publishable key from environment variables
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
@@ -34,14 +36,31 @@ const CheckoutForm = () => {
   useEffect(() => {
     const fetchApplicationDetails = async () => {
       try {
-        const response = await axios.get(`/api/llc-applications/${id}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.warn("No token found, skipping fetch.");
+          return;
+        }
+  
+        const decodedToken = jwtDecode(token);
+        const userId = decodedToken.id;
+  
+        const registrationId = localStorage.getItem(`registrationId_${userId}`);
+        if (!registrationId) {
+          console.warn("No registration ID found, skipping fetch.");
+          return;
+        }
+  
+        const response = await axios.get(
+          `${BASE_URL}/api/llc-registrations/${registrationId}?userId=${userId}`, 
+          {
+            headers: { Authorization: `Bearer ${token}` }
           }
-        });
+        );
+  
         setApplication(response.data);
       } catch (error) {
-        console.error('Error fetching application details:', error);
+        console.error("Error fetching application details:", error);
         toast({
           title: "Error",
           description: "Failed to load application details.",
@@ -49,9 +68,10 @@ const CheckoutForm = () => {
         });
       }
     };
-    
+  
     fetchApplicationDetails();
-  }, [id]);
+  }, []);
+  
   
   const handleSubmit = async (e) => {
     e.preventDefault();
