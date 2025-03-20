@@ -52,6 +52,29 @@ const RequiredLabel = ({ children }) => (
   </FormLabel>
 );
 
+const countries = [
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda",
+  "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain",
+  "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan",
+  "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria",
+  "Burkina Faso", "Burundi", "Cambodia", "Cameroon", "Canada", "Cape Verde",
+  "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros",
+  "Congo (Brazzaville)", "Congo (Kinshasa)", "Costa Rica", "Croatia", "Cuba",
+  "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", "Dominican Republic",
+  "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia",
+  "Eswatini", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia",
+  "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guyana", "Haiti",
+  "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland",
+  "Israel", "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kuwait",
+  "Latvia", "Lebanon", "Libya", "Malaysia", "Maldives", "Mexico", "Morocco", "Nepal",
+  "Netherlands", "New Zealand", "Nigeria", "North Korea", "Norway", "Oman", "Pakistan",
+  "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Russia", "Saudi Arabia",
+  "Singapore", "South Africa", "South Korea", "Spain", "Sri Lanka", "Sweden",
+  "Switzerland", "Syria", "Thailand", "Turkey", "United Arab Emirates", "United Kingdom",
+  "United States", "Venezuela", "Vietnam", "Yemen", "Zimbabwe"
+];
+
+
 const LLCRegistrationForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -92,6 +115,8 @@ const LLCRegistrationForm = () => {
       paymentStatus: 'unpaid'
     }
   });
+
+  
 
   // Get form values for easier access
   const formValues = form.watch();
@@ -183,6 +208,24 @@ useEffect(() => {
         if (registrationData.identificationDocuments?.idFilePath) {
           setPreviewUrl(registrationData.identificationDocuments.idFilePath); // Corrected
         }
+       // Inside your loadExistingRegistration function
+if (registrationData.identificationDocuments?.additionalDocuments) {
+  console.log("Additional documents from DB:", registrationData.identificationDocuments.additionalDocuments);
+  
+  // Create properly formatted objects for each document
+  const formattedAdditionalDocs = registrationData.identificationDocuments.additionalDocuments.map(doc => {
+    // Each doc is an object with fileName and filePath
+    return {
+      fileName: doc.fileName,
+      preview: doc.filePath,  // Use filePath as preview
+      url: doc.filePath       // Store the URL for reference
+    };
+  });
+  
+  // Update form values with the properly formatted additional documents
+  form.setValue('identificationDocuments.additionalDocuments', formattedAdditionalDocs);
+}
+        
   
       } catch (error) {
         console.error('Error loading existing registration:', error);
@@ -260,7 +303,9 @@ const handleAdditionalDocumentUpload = (e) => {
     form.setValue('identificationDocuments.additionalDocuments', updatedAdditionalDocs);
   }
 };
-  const removeAdditionalDocument = (index) => {
+
+
+const removeAdditionalDocument = (index) => {
     const currentDocs = form.getValues('identificationDocuments.additionalDocuments');
     const updatedDocs = currentDocs.filter((_, i) => i !== index);
     form.setValue('identificationDocuments.additionalDocuments', updatedDocs);
@@ -953,9 +998,9 @@ const startNewRegistration = () => {
                                 <SelectValue placeholder="Select country" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="United States">United States</SelectItem>
-                                <SelectItem value="Canada">Canada</SelectItem>
-                                {/* Add more countries as needed */}
+                              {countries.map((country) => (
+                                <SelectItem key={country} value={country}>{country}</SelectItem>
+                              ))}
                               </SelectContent>
                             </Select>
                           </FormControl>
