@@ -81,7 +81,7 @@ router.post('/complete', async (req, res) => {
         // Update registration status to 'paid'
         await client.query(
           `UPDATE llc_registrations 
-           SET status = 'paid', updated_at = CURRENT_TIMESTAMP
+           SET payment_status = 'paid', updated_at = CURRENT_TIMESTAMP
            WHERE id = $1`,
           [registrationId]
         );
@@ -133,7 +133,7 @@ router.post('/stripe-webhook', bodyParser.raw({ type: 'application/json' }), asy
     // Update registration status
     await pool.query(
       `UPDATE llc_registrations 
-       SET status = 'paid', updated_at = CURRENT_TIMESTAMP
+       SET payment_status = 'paid', updated_at = CURRENT_TIMESTAMP
        WHERE id = $1`,
       [registrationId]
     );

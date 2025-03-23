@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BASE_URL } from '@/lib/config';
 import { jwtDecode } from 'jwt-decode';
-import { Loader2, FileText, CreditCard, Edit, Trash2 } from 'lucide-react';
+import { Loader2, FileText, CreditCard, Edit, Trash2, Download } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -27,6 +27,7 @@ const Dashboard = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [registrationToDelete, setRegistrationToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -41,16 +42,15 @@ const Dashboard = () => {
         const decodedToken = jwtDecode(token);
         const userId = decodedToken.id;
   
-        // Fetch all LLC registrations for this user (keeping only this API call)
+        // Fetch all LLC registrations for this user
         const llcResponse = await axios.get(`${BASE_URL}/api/llc-registrations/user/${userId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         
         if (Array.isArray(llcResponse.data)) {
+          console.log('LLC Registrations data:', llcResponse.data); // Debug log
           setLlcRegistrations(llcResponse.data);
-          // If you still need otherApplications for rendering purposes, you can set it to the same data
-          // or just refactor your components to only use llcRegistrations
-          setOtherApplications([]); // Or remove this state entirely if not needed
+          setOtherApplications([]);
         } else {
           setLlcRegistrations([]);
           setOtherApplications([]);
@@ -100,6 +100,21 @@ const Dashboard = () => {
     }
   };
 
+  // Helper function to safely get property value with fallbacks
+  const getPropertyValue = (obj, paths, defaultValue = null) => {
+    // Support multiple possible property paths
+    if (Array.isArray(paths)) {
+      for (const path of paths) {
+        const value = path.split('.').reduce((o, key) => o && o[key] !== undefined ? o[key] : undefined, obj);
+        if (value !== undefined) return value;
+      }
+      return defaultValue;
+    }
+    
+    // Single property path
+    return paths.split('.').reduce((o, key) => o && o[key] !== undefined ? o[key] : undefined, obj) ?? defaultValue;
+  };
+
   const handleEditRegistration = (registration) => {
     // Get the user ID from the token
     const token = localStorage.getItem('token');
@@ -109,22 +124,97 @@ const Dashboard = () => {
     // Store registration ID in localStorage with user-specific key
     localStorage.setItem(`registrationId_${userId}`, registration.id);
     
-    // Navigate to the appropriate step in the form
-    navigate('/register-llc', { state: { currentStep: registration.step || 1 } });
+    // Navigate to the next step in the form
+    // First determine the current step using our helper function
+    const currentStep = getPropertyValue(registration, ['current_step', 'step'], 1);
+    const nextStep = Math.min(parseInt(currentStep) + 1, 6);
+    
+    navigate('/register-llc', { state: { currentStep: nextStep } });
   };
 
-  const handleViewSummary = (registrationId) => {
-    navigate(`/registration-summary/${registrationId}`);
+  const handleUpdateRegistration = (registration) => {
+    // Get the user ID from the token
+    const token = localStorage.getItem('token');
+    const decodedToken = jwtDecode(token);
+    const userId = decodedToken.id;
+    
+    // Store registration ID in localStorage with user-specific key
+    localStorage.setItem(`registrationId_${userId}`, registration.id);
+    
+    // Navigate to the form with the current step
+    const currentStep = getPropertyValue(registration, ['current_step', 'step'], 1);
+    navigate('/register-llc', { state: { currentStep: parseInt(currentStep) } });
   };
 
-  const handleCompletePayment = (registration) => {
-    navigate('/payment', { 
-      state: { 
-        amount: typeof registration.stateAmount === 'number' ? registration.stateAmount : 0, 
-        registrationId: registration.id 
-      } 
+  const downloadSummaryPDF = async (registrationId, companyName) => {
+    setIsDownloading(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error("User authentication token is missing. Please log in again.");
+      }
+      
+      const decodedToken = jwtDecode(token);
+      const userId = decodedToken.id;
+      
+      if (!userId) {
+        throw new Error("User ID not found in token. Please log in again.");
+      }
+      
+      const response = await axios.get(`${BASE_URL}/api/llc-registrations/${registrationId}/pdf`, {
+        responseType: "blob",
+        params: { userId } // Pass userId as a query parameter
+      });
+      
+      // Create a download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `${companyName || "LLC"}_Registration_Summary.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+ const handleCompletePayment = async (registration) => {
+  try {
+    // Get the token and decode it to get the user ID
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+    
+    const decodedToken = jwtDecode(token);
+    const userId = decodedToken.id;
+    
+    // Try both possible property names for the filing fee
+    const filingFee = getPropertyValue(registration, ['filing_fee', 'stateAmount'], 0);
+    const amount = typeof filingFee === 'number' ? filingFee : parseFloat(filingFee) || 0;
+    
+    // Initialize the payment with your backend
+    const response = await axios.post(`${BASE_URL}/api/payments/initialize`, {
+      registrationId: registration.id,
+      amount: amount
+    }, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
     });
-  };
+    
+    // Redirect to the Stripe checkout page with client secret
+    navigate(`/stripe-checkout/${response.data.paymentId}?clientSecret=${response.data.clientSecret}`);
+  } catch (error) {
+    console.error('Error initializing payment:', error);
+    // You could add error handling here, such as displaying an error message to the user
+    setError('Failed to initialize payment. Please try again.');
+  }
+};
 
   const openDeleteDialog = (registration) => {
     setRegistrationToDelete(registration);
@@ -173,7 +263,9 @@ const Dashboard = () => {
       "Review"
     ];
     
-    return step && step <= steps.length ? steps[step - 1] : "Unknown";
+    const stepNumber = parseInt(step);
+    return !isNaN(stepNumber) && stepNumber > 0 && stepNumber <= steps.length ? 
+      steps[stepNumber - 1] : "Unknown";
   };
 
   const formatDate = (dateString) => {
@@ -190,8 +282,8 @@ const Dashboard = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Your Dashboard</h1>
         <Button onClick={() => navigate('/register-llc', { state: { newRegistration: true }})}>
-  Create New LLC
-</Button>
+          Create New LLC
+        </Button>
       </div>
 
       {loading ? (
@@ -222,85 +314,138 @@ const Dashboard = () => {
               </Card>
             ) : (
               <div className="grid grid-cols-1 gap-6">
-                {llcRegistrations.map((registration) => (
-                  <Card key={registration.id} className="shadow-sm">
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle>{registration.companyName || "Unnamed LLC"}</CardTitle>
-                          <CardDescription>
-                            Registration #{registration.id} - Started on {formatDate(registration.created_at || registration.updatedAt)}
-                          </CardDescription>
+                {llcRegistrations.map((registration) => {
+                  // Get property values safely with fallbacks for different field names
+                  const companyName = getPropertyValue(registration, ['company_name', 'companyName'], "Unnamed LLC");
+                  const currentStep = getPropertyValue(registration, ['current_step', 'step'], 1);
+                  const filingFee = getPropertyValue(registration, ['filing_fee', 'stateAmount'], 0);
+                  const state = getPropertyValue(registration, ['state'], "Not selected");
+                  const status = getPropertyValue(registration, ['status'], "Draft");
+                  const paymentStatus = getPropertyValue(registration, ['payment_status', 'paymentStatus'], "Not Paid");
+                  const createdAt = getPropertyValue(registration, ['created_at', 'createdAt', 'updatedAt'], null);
+                  
+                  // Parse step to number for comparisons
+                  const stepNumber = parseInt(currentStep);
+                  
+                  // Check if all steps are completed (step 6 is the final review step)
+                  const isCompleted = stepNumber === 6;
+                  // Check if at least 5 steps are completed (eligible for summary download)
+                  const canDownloadSummary = stepNumber >= 5;
+                  // Check if payment is eligible (registration is in step 6)
+                  const isPaymentEligible = stepNumber === 6;
+                  // Check if payment status is paid
+                  const isPaid = paymentStatus.toLowerCase() === 'paid';
+
+                  return (
+                    <Card key={registration.id} className="shadow-sm">
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle>{companyName}</CardTitle>
+                            <CardDescription>
+                              Registration #{registration.id} - Started on {formatDate(createdAt)}
+                            </CardDescription>
+                          </div>
+                          <div className="flex space-x-2">
+                            <Badge className={getStatusColor(status)}>
+                              {status.charAt(0).toUpperCase() + status.slice(1)}
+                            </Badge>
+                            <Badge className={getPaymentStatusColor(paymentStatus)}>
+                              {paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}
+                            </Badge>
+                          </div>
                         </div>
-                        <div className="flex space-x-2">
-                          <Badge className={getStatusColor(registration.status)}>
-                            {registration.status ? 
-                              registration.status.charAt(0).toUpperCase() + registration.status.slice(1) : 
-                              "Draft"}
-                          </Badge>
-                          <Badge className={getPaymentStatusColor(registration.paymentStatus)}>
-                            {registration.paymentStatus ? 
-                              registration.paymentStatus.charAt(0).toUpperCase() + registration.paymentStatus.slice(1) : 
-                              "Not Paid"}
-                          </Badge>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
+                          <div>
+                            <p className="font-medium text-gray-600">State:</p>
+                            <p>{state}</p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-600">Filing Fee:</p>
+                            <p>${typeof filingFee === 'number' ? 
+                              filingFee.toFixed(2) : 
+                              parseFloat(filingFee).toFixed(2) || '0.00'}</p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-600">Current Progress:</p>
+                            {isPaid ? (
+                              <p>Registration Under Processing</p>
+                            ) : (
+                              <p>Step {currentStep}: {renderCurrentStep(currentStep)}</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
-                        <div>
-                          <p className="font-medium text-gray-600">State:</p>
-                          <p>{registration.state || "Not selected"}</p>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {isCompleted ? (
+                            <Button 
+                              variant="outline"
+                              onClick={() => handleUpdateRegistration(registration)}
+                              className="flex items-center"
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Update Registration
+                            </Button>
+                          ) : (
+                            <Button 
+                              variant="outline"
+                              onClick={() => handleEditRegistration(registration)}
+                              className="flex items-center"
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Continue Registration
+                            </Button>
+                          )}
+                          
+                          {canDownloadSummary && (
+                            <Button 
+                              variant="outline"
+                              onClick={() => downloadSummaryPDF(registration.id, companyName)}
+                              className="flex items-center"
+                              disabled={isDownloading}
+                            >
+                              {isDownloading ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Downloading...
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download Summary
+                                </>
+                              )}
+                            </Button>
+                          )}
+                          
+                          {/* Only show payment button for completed registrations (Step 6) that aren't paid */}
+                          {isPaymentEligible && !isPaid && (
+                            <Button 
+                              onClick={() => handleCompletePayment(registration)}
+                              className="flex items-center"
+                            >
+                              <CreditCard className="h-4 w-4 mr-2" />
+                              Complete Payment
+                            </Button>
+                          )}
+                          
+                          {/* Only show Delete button if payment is not completed */}
+                          {!isPaid && (
+                            <Button 
+                              variant="outline"
+                              onClick={() => openDeleteDialog(registration)}
+                              className="flex items-center text-red-600 hover:bg-red-50 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </Button>
+                          )}
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-600">Filing Fee:</p>
-                          <p>${typeof registration.stateAmount === 'number' ? 
-                            registration.stateAmount.toFixed(2) : 
-                            '0.00'}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-600">Current Progress:</p>
-                          <p>Step {registration.step || 1}: {renderCurrentStep(registration.step)}</p>
-                        </div>
-                      </div>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <Button 
-                          variant="outline"
-                          onClick={() => handleEditRegistration(registration)}
-                          className="flex items-center"
-                        >
-                          <Edit className="h-4 w-4 mr-2" />
-                          Continue Registration
-                        </Button>
-                        <Button 
-                          variant="outline"
-                          onClick={() => handleViewSummary(registration.id)}
-                          className="flex items-center"
-                        >
-                          <FileText className="h-4 w-4 mr-2" />
-                          View Summary
-                        </Button>
-                        {(registration.paymentStatus === 'unpaid' || registration.paymentStatus === 'Not Paid') && (
-                          <Button 
-                            onClick={() => handleCompletePayment(registration)}
-                            className="flex items-center"
-                          >
-                            <CreditCard className="h-4 w-4 mr-2" />
-                            Complete Payment
-                          </Button>
-                        )}
-                        <Button 
-                          variant="outline"
-                          onClick={() => openDeleteDialog(registration)}
-                          className="flex items-center text-red-600 hover:bg-red-50 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -373,7 +518,7 @@ const Dashboard = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Registration</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <strong>{registrationToDelete?.companyName || "this LLC registration"}</strong>? 
+              Are you sure you want to delete <strong>{getPropertyValue(registrationToDelete, ['company_name', 'companyName'], "this LLC registration")}</strong>? 
               This action cannot be undone and will permanently remove all related information 
               including documents, addresses, ownership details, and payment records.
             </AlertDialogDescription>

@@ -35,6 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { PlusCircle, MinusCircle, ArrowRight, ArrowLeft, CheckCircle, Upload, Download } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { BASE_URL } from '@/lib/config';
+import { toast } from 'sonner';
 
 const AGENCY_NAME = "Mountain West Registered Agents";
 const AGENCY_DETAILS = {
@@ -137,9 +138,7 @@ useEffect(() => {
      
     }
   };
-
   
-
     const fetchCategories = async () => {
       try {
         const response = await axios.get(`${BASE_URL}/api/categories`);
@@ -153,19 +152,32 @@ useEffect(() => {
     fetchCategories();
   }, []);
 
+    // Add this useEffect to handle state selection after options load
+useEffect(() => {
+  // If we have state options loaded AND we have a selected state in the form
+  // but the amount isn't set, update it
+  const currentState = form.getValues('state');
+  if (stateOptions.length > 0 && currentState && !stateAmount) {
+    handleStateChange(currentState);
+  }
+}, [stateOptions, form, stateAmount]);
+
+
+
+
   // Add this useEffect after your other useEffect hooks
   useEffect(() => {
     const loadExistingRegistration = async () => {
       try {
         const token = localStorage.getItem('token');
         if (!token) return;
-  
+    
         const decodedToken = jwtDecode(token);
         const userId = decodedToken.id;
         const registrationId = localStorage.getItem(`registrationId_${userId}`);
-  
+    
         if (!registrationId) return;
-  
+    
         setIsLoading(true);
         const response = await axios.get(
           `${BASE_URL}/api/llc-registrations/${registrationId}?userId=${userId}`, // Pass userId
@@ -173,60 +185,78 @@ useEffect(() => {
             headers: { 'Authorization': `Bearer ${token}` }
           }
         );
-  
+    
         const registrationData = response.data;
         console.log("Fetched Data:", registrationData);
-  
+    
         // Update form fields
         Object.keys(registrationData).forEach((key) => {
-          form.setValue(key, registrationData[key]);
+          if (key !== 'state') { // Handle state separately
+            form.setValue(key, registrationData[key]);
+          }
         });
-  
+    
         // Update nested values separately
         if (registrationData.address) {
           form.setValue("address", registrationData.address);
         }
-  
+    
         if (registrationData.owners) {
           form.setValue("owners", registrationData.owners);
         }
-  
+    
         if (registrationData.identificationDocuments) {
           form.setValue("identificationDocuments", registrationData.identificationDocuments);
         }
-  
-        // Set state and step
+    
+        // Important: Set the state value explicitly for the Select component
         if (registrationData.state) {
-          handleStateChange(registrationData.state);
+          // Force the select component to update by explicitly setting its value
+          form.setValue('state', registrationData.state, { shouldValidate: true });
+          
+          // Make sure the amount is also set
+          if (registrationData.stateAmount) {
+            setStateAmount(parseFloat(registrationData.stateAmount));
+            form.setValue('stateAmount', parseFloat(registrationData.stateAmount));
+          } else {
+            // If there's no amount but there is a state, try to get the amount from options
+            const stateOption = stateOptions.find(s => s.name === registrationData.state);
+            if (stateOption) {
+              const fee = parseFloat(stateOption.fee) || 0;
+              setStateAmount(fee);
+              form.setValue('stateAmount', fee);
+            }
+          }
         }
-  
+    
+        // Set step
         if (registrationData.step) {
           setCurrentStep(parseInt(registrationData.step));
         }
-  
+    
         // Load document previews if available
         if (registrationData.identificationDocuments?.idFilePath) {
-          setPreviewUrl(registrationData.identificationDocuments.idFilePath); // Corrected
+          setPreviewUrl(registrationData.identificationDocuments.idFilePath);
         }
-       // Inside your loadExistingRegistration function
-if (registrationData.identificationDocuments?.additionalDocuments) {
-  console.log("Additional documents from DB:", registrationData.identificationDocuments.additionalDocuments);
-  
-  // Create properly formatted objects for each document
-  const formattedAdditionalDocs = registrationData.identificationDocuments.additionalDocuments.map(doc => {
-    // Each doc is an object with fileName and filePath
-    return {
-      fileName: doc.fileName,
-      preview: doc.filePath,  // Use filePath as preview
-      url: doc.filePath       // Store the URL for reference
-    };
-  });
-  
-  // Update form values with the properly formatted additional documents
-  form.setValue('identificationDocuments.additionalDocuments', formattedAdditionalDocs);
-}
         
-  
+        // Handle additional documents
+        if (registrationData.identificationDocuments?.additionalDocuments) {
+          console.log("Additional documents from DB:", registrationData.identificationDocuments.additionalDocuments);
+          
+          // Create properly formatted objects for each document
+          const formattedAdditionalDocs = registrationData.identificationDocuments.additionalDocuments.map(doc => {
+            // Each doc is an object with fileName and filePath
+            return {
+              fileName: doc.fileName,
+              preview: doc.filePath,  // Use filePath as preview
+              url: doc.filePath       // Store the URL for reference
+            };
+          });
+          
+          // Update form values with the properly formatted additional documents
+          form.setValue('identificationDocuments.additionalDocuments', formattedAdditionalDocs);
+        }
+    
       } catch (error) {
         console.error('Error loading existing registration:', error);
       } finally {
@@ -341,7 +371,7 @@ const saveProgress = async (shouldUpdateExisting = true) => {
       userId,
       updateExisting: shouldUpdateExisting,
       state: formValues.state,
-      stateAmount: parseFloat(stateAmount) || 0,
+      stateAmount: parseFloat(formValues.stateAmount || stateAmount || 0),
       companyName: formValues.companyName,
       companyType: formValues.companyType,
       category: formValues.category,
@@ -436,18 +466,18 @@ const validateCurrentStep = () => {
   switch (currentStep) {
     case 1:
       if (!formValues.state) {
-        alert("Please select a state before proceeding.");
+        toast.error("Please select a state before proceeding.");
         return false;
       }
       return true;
       
     case 2:
       if (!formValues.companyName) {
-        alert("Please enter a company name before proceeding.");
+        toast.error("Please enter a company name before proceeding.");
         return false;
       }
       if (!formValues.category) {
-        alert("Please select a business category before proceeding.");
+        toast.error("Please select a business category before proceeding.");
         return false;
       }
       return true;
@@ -455,7 +485,7 @@ const validateCurrentStep = () => {
     case 3:
       for (let i = 0; i < formValues.owners.length; i++) {
         if (!formValues.owners[i].fullName || !formValues.owners[i].ownershipPercentage) {
-          alert(`Please complete all owner information for Owner ${i + 1}.`);
+          toast.error(`Please complete all owner information for Owner ${i + 1}.`);
           return false;
         }
       }
@@ -466,7 +496,7 @@ const validateCurrentStep = () => {
       );
       
       if (Math.abs(totalPercentage - 100) > 0.01) {
-        alert(`Total ownership percentage should equal 100%. Current total: ${totalPercentage}%`);
+        toast.error(`Total ownership percentage should equal 100%. Current total: ${totalPercentage}%`);
         return false;
       }
       
@@ -475,14 +505,14 @@ const validateCurrentStep = () => {
     case 4:
       if (!formValues.address.street || !formValues.address.city || 
           !formValues.address.state || !formValues.address.postalCode) {
-        alert("Please complete all address fields before proceeding.");
+            toast.error("Please complete all address fields before proceeding.");
         return false;
       }
       return true;
       
     case 5:
       if (!formValues.identificationDocuments.idFile && !formValues.identificationDocuments.idFileName) {
-        alert("Please upload your passport before proceeding.");
+        toast.error("Please upload your passport before proceeding.");
         return false;
       }
       return true;
@@ -516,6 +546,18 @@ const handleNext = async (e) => {
 
 const handleBack = (e) => {
   e.preventDefault(); // Prevent default form submission
+  
+  // If we're going back to the state selection step
+  if (currentStep === 2) {
+    // Force the select to update by re-setting the value
+    const currentState = form.getValues('state');
+    if (currentState) {
+      setTimeout(() => {
+        form.setValue('state', currentState, { shouldValidate: true });
+      }, 0);
+    }
+  }
+  
   setCurrentStep(currentStep - 1);
 };
 
@@ -669,7 +711,7 @@ const handleSubmit = async () => {
                          <RequiredLabel>State of Formation</RequiredLabel>
                         <FormControl>
                         <Select 
-  value={field.value}
+  value={field.value || ''}  // Include a default empty string
   onValueChange={(value) => {
     field.onChange(value);
     handleStateChange(value);
