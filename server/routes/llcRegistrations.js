@@ -4,6 +4,10 @@ const {pool} = require('../config/db');
 const jwt = require("jsonwebtoken");
 const PDFDocument = require('pdfkit');
 const { upload, deleteFile, getPublicIdFromUrl, cloudinary } = require('../middleware/fileUpload');
+const { v4: uuidv4 } = require('uuid');
+const path = require('path');
+const axios = require('axios');
+const fs = require('fs');
 
 const { authenticateToken } = require('../middleware/auth');
 
@@ -258,44 +262,7 @@ router.post('/llc-registrations', authenticateToken, upload.fields([
 
 
 
-router.get('/llc-applications', async (req, res) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ error: 'Authorization token is required' });
-    }
-    
-    // Verify the token
-    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decodedToken.id;
-    
-    // Query for applications from the new table instead
-    const applicationsResult = await pool.query(
-      `SELECT id, company_name as business_name, 
-              state as business_address, 
-              company_type as industry_type, 
-              status, payment_status as payment_status, 
-              created_at, updated_at
-       FROM llc_registrations
-       WHERE user_id = $1
-       ORDER BY created_at DESC`,
-      [userId]
-    );
-    
-    res.status(200).json(applicationsResult.rows);
-  } catch (error) {
-    console.error('Error fetching legacy applications:', error);
-    
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    
-    res.status(500).json({ 
-      error: 'Internal server error', 
-      message: error.message 
-    });
-  }
-});
+
 
 // Get all LLC registrations for a specific user
 router.get('/llc-registrations/user/:userId', async (req, res) => {
@@ -519,17 +486,61 @@ router.delete('/llc-registrations/:id', async (req, res) => {
 router.get("/llc-registrations/:id/pdf", async (req, res) => {
   const { id } = req.params;
   const userId = req.query.userId;
+  const agencyName = "Legal Formation Services"; // You can change this
+  const tempDir = path.join(__dirname, '../temp'); // Temp directory for downloaded images
+
+  // Ensure temp directory exists
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
 
   // Add validation
   if (!userId) {
     return res.status(400).json({ error: "User ID is required" });
   }
 
+  // Function to download image from URL
+  const downloadImage = async (url, localPath) => {
+    try {
+      const response = await axios({
+        method: 'GET',
+        url: url,
+        responseType: 'stream'
+      });
+      
+      return new Promise((resolve, reject) => {
+        const writer = fs.createWriteStream(localPath);
+        response.data.pipe(writer);
+        
+        writer.on('finish', () => resolve(localPath));
+        writer.on('error', reject);
+      });
+    } catch (error) {
+      console.error(`Error downloading image from ${url}:`, error);
+      throw error;
+    }
+  };
+
+  // Clean up temp files when done
+  const cleanupTempFiles = (filePaths) => {
+    filePaths.forEach(filePath => {
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (err) {
+        console.error(`Error deleting temp file ${filePath}:`, err);
+      }
+    });
+  };
+
+  const tempFiles = []; // Track temp files for cleanup
+
   try {
     // Verify the user has access to this registration
     const verifyResult = await pool.query(
       "SELECT * FROM llc_registrations WHERE id = $1 AND user_id = $2",
-      [id, parseInt(userId, 10)] // Ensure userId is converted to integer
+      [id, parseInt(userId, 10)]
     );
 
     if (verifyResult.rows.length === 0) {
@@ -538,28 +549,264 @@ router.get("/llc-registrations/:id/pdf", async (req, res) => {
 
     const registration = verifyResult.rows[0];
 
+    // Fetch address information
+    const addressResult = await pool.query(
+      "SELECT * FROM llc_addresses WHERE registration_id = $1",
+      [id]
+    );
+    
+    const address = addressResult.rows.length > 0 ? addressResult.rows[0] : null;
+    
+    // Fetch owners information
+    const ownersResult = await pool.query(
+      "SELECT * FROM llc_owners WHERE registration_id = $1 ORDER BY ownership_percentage DESC",
+      [id]
+    );
+    
+    const owners = ownersResult.rows;
+    
+    // Fetch identification documents
+    const documentsResult = await pool.query(
+      "SELECT * FROM identification_documents WHERE registration_id = $1 AND document_type = 'id_proof'",
+      [id]
+    );
+    
+    const idDocuments = documentsResult.rows;
+
     // Create a PDF document
-    const doc = new PDFDocument();
-    res.setHeader("Content-Disposition", `attachment; filename=LLC_Summary_${id}.pdf`);
+    const doc = new PDFDocument({
+      margins: {
+        top: 50,
+        bottom: 50,
+        left: 50,
+        right: 50
+      },
+      info: {
+        Title: `LLC Registration Summary - ${registration.company_name}`,
+        Author: agencyName,
+        Subject: 'LLC Registration Documents'
+      }
+    });
+    
+    res.setHeader("Content-Disposition", `attachment; filename=LLC_Summary_${registration.company_name.replace(/\s+/g, '_')}_${id}.pdf`);
     res.setHeader("Content-Type", "application/pdf");
 
     // Pipe the document to the response
     doc.pipe(res);
 
-    // PDF Content
-    doc.fontSize(18).text("LLC Registration Summary", { align: "center" });
+    // Agency Logo and Header
+    // Replace with your logo path or use a placeholder
+    const logoPath = './public/assets/logo.png'; // Adjust with your actual logo path
+    try {
+      doc.image(logoPath, 50, 50, { width: 60, height: 60 });
+
+    } catch (err) {
+      // If logo fails to load, just use text
+      doc.fontSize(24).text(agencyName, 50, 50, { align: "left" });
+    }
+    
+    // Add Agency Name with strong styling
+    doc.fontSize(24).text(agencyName, 160, 50, { align: "left" });
+    doc.fontSize(12).text("LLC Registration Services", 160, 80, { align: "left" });
+    
+    // Add current date
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    doc.fontSize(10).text(`Generated on: ${currentDate}`, 50, 100, { align: "right" });
+    
+    // Add horizontal line
+    doc.moveTo(50, 120).lineTo(550, 120).stroke();
+    
+    doc.moveDown(2);
+
+    // PDF Content - Title
+    doc.fontSize(22).text("LLC Registration Summary", { align: "center" });
     doc.moveDown();
-    doc.fontSize(14).text(`Company Name: ${registration.company_name || "N/A"}`);
-    doc.text(`Company Type: ${registration.company_type || "LLC"}`);
-    doc.text(`State: ${registration.state || "N/A"}`);
-    doc.text(`Owners: ${registration.owners || "N/A"}`);
-    doc.text(`Address: ${registration.address || "N/A"}`);
-    doc.text(`Payment Status: ${registration.payment_status || "Unpaid"}`);
+
+    // Company details section
+    doc.fontSize(16).text("Company Details", 50, 170);
+    doc.moveDown(0.5);
+    
+    // Info table styling
+    const drawInfoRow = (label, value, yPos) => {
+      doc.fontSize(11).font('Helvetica-Bold').text(label, 70, yPos);
+      doc.fontSize(11).font('Helvetica').text(value || "N/A", 250, yPos);
+    };
+    
+    let yPos = 195;
+    
+    drawInfoRow("Company Name:", registration.company_name, yPos);
+    yPos += 20;
+    drawInfoRow("Company Type:", registration.company_type || "LLC", yPos);
+    yPos += 20;
+    drawInfoRow("Registration State:", registration.state, yPos);
+    yPos += 20;
+    drawInfoRow("Payment Status:", registration.payment_status || "Unpaid", yPos);
+    yPos += 20;
+    drawInfoRow("Registration Date:", new Date(registration.created_at).toLocaleDateString(), yPos);
+    
+    yPos += 40;
+    
+    // Address section
+    doc.fontSize(16).text("Address", 50, yPos);
+    yPos += 25;
+    
+    if (address) {
+      doc.fontSize(11).text(`${address.street}`, 70, yPos);
+      yPos += 20;
+      doc.fontSize(11).text(`${address.city}, ${address.state_province} ${address.postal_code}`, 70, yPos);
+      yPos += 20;
+      doc.fontSize(11).text(`${address.country}`, 70, yPos);
+    } else {
+      doc.fontSize(11).text("No address information available", 70, yPos);
+    }
+    
+    yPos += 40;
+    
+    // Owners section
+    doc.fontSize(16).text("Company Owners", 50, yPos);
+    yPos += 25;
+    
+    if (owners.length > 0) {
+      // Table header
+      doc.fontSize(11).font('Helvetica-Bold').text("Name", 70, yPos);
+      doc.fontSize(11).font('Helvetica-Bold').text("Ownership %", 350, yPos);
+      yPos += 20;
+      
+      // Add horizontal line
+      doc.moveTo(70, yPos).lineTo(500, yPos).stroke();
+      yPos += 10;
+      
+      // Owner rows
+      owners.forEach(owner => {
+        doc.fontSize(11).font('Helvetica').text(owner.full_name, 70, yPos);
+        doc.fontSize(11).font('Helvetica').text(`${owner.ownership_percentage}%`, 350, yPos);
+        yPos += 20;
+      });
+    } else {
+      doc.fontSize(11).text("No owner information available", 70, yPos);
+      yPos += 20;
+    }
+    
+    // Check if we need a new page for ID documents
+    if (yPos > 650) {
+      doc.addPage();
+      yPos = 50;
+    } else {
+      yPos += 40;
+    }
+    
+    // ID Documents section
+    doc.fontSize(16).text("Identification Documents", 50, yPos);
+    yPos += 25;
+    
+    if (idDocuments.length > 0) {
+      for (const document of idDocuments) {
+        doc.fontSize(11).font('Helvetica-Bold').text(`Document Type: ${document.id_type || 'ID Proof'}`, 70, yPos);
+        yPos += 20;
+        
+        // Try to include the image from Cloudinary URL
+        if (document.file_path) {
+          // Check if it's a PDF
+          if (document.file_name.toLowerCase().endsWith('.pdf')) {
+            doc.fontSize(11).text(`PDF Document: ${document.file_name}`, 70, yPos);
+            yPos += 20;
+            doc.fontSize(11).text(`(PDF documents cannot be embedded - URL: ${document.file_path})`, 70, yPos);
+            yPos += 20;
+          } else {
+            // It's an image that we will download and embed
+            try {
+              // Add a note about the file
+              doc.fontSize(10).text(`File: ${document.file_name}`, 70, yPos);
+              yPos += 15;
+              
+              // If image doesn't fit on current page, add a new page
+              if (yPos + 200 > 750) {
+                doc.addPage();
+                yPos = 50;
+              }
+              
+              // Download the image to a temporary file
+              const tempFilePath = path.join(tempDir, `${uuidv4()}_${document.file_name}`);
+              tempFiles.push(tempFilePath); // Track for cleanup
+              
+              // Now download and embed the image
+              try {
+                await downloadImage(document.file_path, tempFilePath);
+                
+                // Calculate image dimensions to fit nicely on the page
+                const imgWidth = 300;
+                const imgHeight = 200;
+                
+                // Add the image to the PDF
+                doc.image(tempFilePath, 70, yPos, {
+                  fit: [imgWidth, imgHeight],
+                  align: 'center',
+                  valign: 'center'
+                });
+                
+                yPos += imgHeight + 30;
+              } catch (imageError) {
+                console.error("Error processing image:", imageError);
+                doc.fontSize(10).text(`Unable to display image. URL: ${document.file_path}`, 70, yPos);
+                doc.rect(70, yPos + 15, 300, 100).stroke();
+                doc.fontSize(10).text("Image could not be processed", 70 + 150 - 60, yPos + 50);
+                yPos += 130;
+              }
+            } catch (imgErr) {
+              console.error("Error handling image:", imgErr);
+              doc.fontSize(10).text(`Unable to display image. URL: ${document.file_path}`, 70, yPos);
+              yPos += 20;
+            }
+          }
+        }
+      }
+    } else {
+      doc.fontSize(11).text("No identification documents available", 70, yPos);
+    }
+    
+    // Add footer
+   // Add footer
+const totalPages = doc.bufferedPageRange().count;
+if (totalPages > 1) {  // Ensure we have more than one page
+  for (let i = 0; i < totalPages; i++) {
+    doc.switchToPage(i);
+    
+    // Add footer line
+    doc.moveTo(50, 760).lineTo(550, 760).stroke();
+    
+    // Add page number and website
+    doc.fontSize(10).text(
+      `Page ${i + 1} of ${totalPages}`,
+      50, 770,
+      { align: 'right' }
+    );
+    
+    doc.fontSize(10).text(
+      `${agencyName} - Confidential LLC Registration Document`,
+      50, 770,
+      { align: 'left' }
+    );
+  }
+}
+
 
     // Finalize PDF
     doc.end();
+    
+    // Event handler for when the PDF is completely written
+    doc.on('end', () => {
+      // Clean up temp files after PDF is sent
+      cleanupTempFiles(tempFiles);
+    });
+    
   } catch (error) {
     console.error("Error generating PDF:", error);
+    // Clean up temp files in case of error
+    cleanupTempFiles(tempFiles);
     res.status(500).json({ error: "Internal server error" });
   }
 });
