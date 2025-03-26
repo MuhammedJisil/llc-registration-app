@@ -112,6 +112,7 @@ app.use('/api',  require('./routes/categories'));
 app.use('/api',  require('./routes/llcRegistrations'));
 app.use('/api', require('./routes/documents'));
 app.use('/api/payments', require('./routes/payments'));
+app.use('/api', require('./routes/notificationRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 
 // Start server

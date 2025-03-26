@@ -94,13 +94,104 @@ router.get('/verify', isAdminAuthenticated, (req, res) => {
 });
 
 
-// Get all LLC registrations with user details
-router.get('/registrations', isAdminAuthenticated, async (req, res) => {
+
+// New route to get all users with registration status
+router.get('/users', isAdminAuthenticated, async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, search } = req.query;
+    const { page = 1, limit = 10, search, registrationStatus } = req.query;
     const offset = (page - 1) * limit;
 
-    // Build dynamic query based on filters
+    let query = `
+      SELECT 
+        u.id, 
+        u.full_name, 
+        u.email, 
+        u.created_at,
+        COALESCE(llc.registration_count, 0) as registration_count,
+        COALESCE(new_users.is_new, false) as is_new
+      FROM users u
+      LEFT JOIN (
+        SELECT user_id, COUNT(*) as registration_count 
+        FROM llc_registrations 
+        GROUP BY user_id
+      ) llc ON u.id = llc.user_id
+      LEFT JOIN (
+        SELECT user_id, true as is_new 
+        FROM llc_registrations 
+        WHERE created_at > NOW() - INTERVAL '7 days'
+      ) new_users ON u.id = new_users.user_id
+      WHERE 1=1
+    `;
+
+    const queryParams = [];
+    let paramIndex = 1;
+
+    // Add search filter
+    if (search) {
+      query += ` AND (
+        u.full_name ILIKE $${paramIndex} OR 
+        u.email ILIKE $${paramIndex}
+      )`;
+      queryParams.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Add registration status filter
+    if (registrationStatus === 'registered') {
+      query += ` AND llc.registration_count > 0`;
+    } else if (registrationStatus === 'unregistered') {
+      query += ` AND (llc.registration_count IS NULL OR llc.registration_count = 0)`;
+    }
+
+    // Add pagination and ordering
+    query += ` 
+      ORDER BY u.created_at DESC 
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    queryParams.push(limit, offset);
+
+    // Get total count query
+    const countQuery = `
+      SELECT COUNT(*) as total 
+      FROM users u
+      LEFT JOIN (
+        SELECT user_id, COUNT(*) as registration_count 
+        FROM llc_registrations 
+        GROUP BY user_id
+      ) llc ON u.id = llc.user_id
+      WHERE 1=1
+      ${search ? `AND (
+        u.full_name ILIKE $1 OR 
+        u.email ILIKE $1
+      )` : ''}
+      ${registrationStatus === 'registered' ? ` AND llc.registration_count > 0` : ''}
+      ${registrationStatus === 'unregistered' ? ` AND (llc.registration_count IS NULL OR llc.registration_count = 0)` : ''}
+    `;
+
+    const [usersResult, countResult] = await Promise.all([
+      pool.query(query, queryParams),
+      pool.query(countQuery, search ? [queryParams[0]] : [])
+    ]);
+
+    res.status(200).json({
+      users: usersResult.rows,
+      totalUsers: parseInt(countResult.rows[0].total),
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get user's registrations
+router.get('/users/:userId/registrations', isAdminAuthenticated, async (req, res) => {
+  const { userId } = req.params;
+  const { page = 1, limit = 10, status } = req.query;
+  const offset = (page - 1) * limit;
+
+  try {
     let query = `
       SELECT 
         r.id, 
@@ -108,36 +199,21 @@ router.get('/registrations', isAdminAuthenticated, async (req, res) => {
         r.company_type, 
         r.state, 
         r.status, 
-        r.payment_status, 
-        r.created_at, 
-        r.updated_at,
-        u.full_name as user_name,
-        u.email as user_email,
+        r.created_at,
+        r.payment_status,
         bc.name as category
       FROM llc_registrations r
-      JOIN users u ON r.user_id = u.id
       LEFT JOIN business_categories bc ON r.category_id = bc.id
-      WHERE 1=1
+      WHERE r.user_id = $1
     `;
 
-    const queryParams = [];
-    let paramIndex = 1;
+    const queryParams = [userId];
+    let paramIndex = 2;
 
     // Add status filter
     if (status) {
       query += ` AND r.status = $${paramIndex}`;
       queryParams.push(status);
-      paramIndex++;
-    }
-
-    // Add search filter
-    if (search) {
-      query += ` AND (
-        r.company_name ILIKE $${paramIndex} OR 
-        u.full_name ILIKE $${paramIndex} OR 
-        u.email ILIKE $${paramIndex}
-      )`;
-      queryParams.push(`%${search}%`);
       paramIndex++;
     }
 
@@ -148,23 +224,17 @@ router.get('/registrations', isAdminAuthenticated, async (req, res) => {
     `;
     queryParams.push(limit, offset);
 
-    // Get total count for pagination
+    // Get total count query
     const countQuery = `
       SELECT COUNT(*) as total 
       FROM llc_registrations r
-      JOIN users u ON r.user_id = u.id
-      WHERE 1=1
-      ${status ? `AND r.status = $1` : ''}
-      ${search ? `AND (
-        r.company_name ILIKE $${status ? 2 : 1} OR 
-        u.full_name ILIKE $${status ? 2 : 1} OR 
-        u.email ILIKE $${status ? 2 : 1}
-      )` : ''}
+      WHERE r.user_id = $1
+      ${status ? ` AND r.status = $2` : ''}
     `;
 
     const [registrationsResult, countResult] = await Promise.all([
       pool.query(query, queryParams),
-      pool.query(countQuery, status || search ? queryParams.slice(0, -2) : [])
+      pool.query(countQuery, status ? [userId, status] : [userId])
     ]);
 
     res.status(200).json({
@@ -174,13 +244,13 @@ router.get('/registrations', isAdminAuthenticated, async (req, res) => {
       limit: parseInt(limit)
     });
   } catch (error) {
-    console.error('Error fetching registrations:', error);
+    console.error('Error fetching user registrations:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Get detailed information for a specific registration
-router.get('/registrations/:id', isAdminAuthenticated, async (req, res) => {
+// Get specific registration details with separated documents
+router.get('/registrations/:id/details', isAdminAuthenticated, async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -204,6 +274,27 @@ router.get('/registrations/:id', isAdminAuthenticated, async (req, res) => {
 
     const registration = registrationResult.rows[0];
 
+    // Get ID documents
+    const idDocumentResult = await pool.query(
+      `SELECT 
+        id_type as "idType", 
+        file_name as "idFileName", 
+        file_path as "idFilePath"
+      FROM identification_documents
+      WHERE registration_id = $1 AND document_type = 'id_proof'`,
+      [id]
+    );
+
+    // Get additional documents
+    const additionalDocsResult = await pool.query(
+      `SELECT 
+        file_name as "fileName", 
+        file_path as "filePath"
+      FROM identification_documents
+      WHERE registration_id = $1 AND document_type = 'additional'`,
+      [id]
+    );
+
     // Get owners
     const ownersResult = await pool.query(
       `SELECT full_name, ownership_percentage 
@@ -220,27 +311,57 @@ router.get('/registrations/:id', isAdminAuthenticated, async (req, res) => {
       [id]
     );
 
-    // Get documents
-    const documentsResult = await pool.query(
-      `SELECT 
-        id_type, 
-        document_type, 
-        file_name, 
-        file_path 
-      FROM identification_documents
-      WHERE registration_id = $1`,
-      [id]
-    );
-
     res.status(200).json({
       registration,
+      idDocuments: idDocumentResult.rows,
+      additionalDocuments: additionalDocsResult.rows,
       owners: ownersResult.rows,
-      address: addressResult.rows[0] || null,
-      documents: documentsResult.rows
+      address: addressResult.rows[0] || null
     });
   } catch (error) {
     console.error('Error fetching registration details:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete registration
+router.delete('/registrations/:id', isAdminAuthenticated, async (req, res) => {
+  const { id } = req.params;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Delete related records first
+    await client.query('DELETE FROM llc_owners WHERE registration_id = $1', [id]);
+    await client.query('DELETE FROM llc_addresses WHERE registration_id = $1', [id]);
+    await client.query('DELETE FROM identification_documents WHERE registration_id = $1', [id]);
+    await pool.query('DELETE FROM payments WHERE registration_id = $1',[id]);
+
+    // Then delete the registration
+    const result = await client.query(
+      'DELETE FROM llc_registrations WHERE id = $1 RETURNING *',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Registration not found' });
+    }
+
+    await client.query('COMMIT');
+
+    res.status(200).json({
+      message: 'Registration deleted successfully',
+      registration: result.rows[0]
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting registration:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
   }
 });
 
@@ -318,5 +439,200 @@ router.get('/dashboard-stats', isAdminAuthenticated, async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+router.get(
+  '/registrations/:registrationId/notifications', 
+  isAdminAuthenticated,
+  async (req, res) => {
+    try {
+      const { registrationId } = req.params;
+
+      // Validate registration exists and belongs to the user
+      const registrationQuery = await pool.query(
+        'SELECT * FROM llc_registrations WHERE id = $1', 
+        [registrationId]
+      );
+
+      if (registrationQuery.rows.length === 0) {
+        return res.status(404).json({ 
+          error: 'Registration not found' 
+        });
+      }
+
+      // Fetch notifications for the registration
+      const notificationsQuery = await pool.query(
+        `SELECT 
+          id, 
+          message, 
+          message_type, 
+          is_read, 
+          created_at 
+        FROM registration_notifications 
+        WHERE registration_id = $1 
+        ORDER BY created_at DESC`,
+        [registrationId]
+      );
+
+      res.status(200).json({
+        notifications: notificationsQuery.rows
+      });
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      res.status(500).json({ 
+        error: 'Internal server error',
+        details: error.message 
+      });
+    }
+  }
+);
+
+// Create a new notification for a registration
+router.post(
+  '/registrations/:registrationId/notifications', 
+  isAdminAuthenticated,
+  async (req, res) => {
+    try {
+      const { registrationId } = req.params;
+      const { message, messageType } = req.body;
+
+      // Input validation
+      if (!message || !messageType) {
+        return res.status(400).json({ 
+          error: 'Message and message type are required' 
+        });
+      }
+
+      // Validate registration exists
+      const registrationCheck = await pool.query(
+        'SELECT user_id FROM llc_registrations WHERE id = $1',
+        [registrationId]
+      );
+
+      if (registrationCheck.rows.length === 0) {
+        return res.status(404).json({ 
+          error: 'Registration not found' 
+        });
+      }
+
+      // Get the user ID associated with the registration
+      const userId = registrationCheck.rows[0].user_id;
+
+      // Insert notification
+      const insertQuery = `
+        INSERT INTO registration_notifications 
+        (registration_id, user_id, message, message_type) 
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, message, message_type, is_read, created_at
+      `;
+
+      const result = await pool.query(insertQuery, [
+        registrationId, 
+        userId, 
+        message, 
+        messageType
+      ]);
+
+      res.status(201).json({
+        notification: result.rows[0],
+        message: 'Notification created successfully'
+      });
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      res.status(500).json({ 
+        error: 'Failed to create notification',
+        details: error.message 
+      });
+    }
+  }
+);
+
+// Mark notification as read
+router.patch(
+  '/notifications/:notificationId/read', 
+  isAdminAuthenticated,
+  async (req, res) => {
+    try {
+      const { notificationId } = req.params;
+
+      // Update notification read status
+      const updateQuery = `
+        UPDATE registration_notifications 
+        SET is_read = true 
+        WHERE id = $1 
+        RETURNING *
+      `;
+
+      const result = await pool.query(updateQuery, [notificationId]);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ 
+          error: 'Notification not found' 
+        });
+      }
+
+      res.status(200).json({
+        notification: result.rows[0],
+        message: 'Notification marked as read'
+      });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      res.status(500).json({ 
+        error: 'Failed to update notification',
+        details: error.message 
+      });
+    }
+  }
+);
+
+// Get all notifications for a user
+router.get(
+  '/users/:userId/notifications', 
+  isAdminAuthenticated,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { status } = req.query;
+
+      // Base query to fetch notifications
+      let query = `
+        SELECT 
+          n.id, 
+          n.message, 
+          n.message_type, 
+          n.is_read, 
+          n.created_at,
+          r.company_name
+        FROM registration_notifications n
+        JOIN llc_registrations r ON n.registration_id = r.id
+        WHERE n.user_id = $1
+      `;
+
+      const queryParams = [userId];
+
+      // Add filter for read/unread status
+      if (status === 'read') {
+        query += ' AND n.is_read = true';
+      } else if (status === 'unread') {
+        query += ' AND n.is_read = false';
+      }
+
+      // Order by most recent first
+      query += ' ORDER BY n.created_at DESC';
+
+      const result = await pool.query(query, queryParams);
+
+      res.status(200).json({
+        notifications: result.rows,
+        total: result.rowCount
+      });
+    } catch (error) {
+      console.error('Error fetching user notifications:', error);
+      res.status(500).json({ 
+        error: 'Failed to retrieve notifications',
+        details: error.message 
+      });
+    }
+  }
+);
 
 module.exports = router;

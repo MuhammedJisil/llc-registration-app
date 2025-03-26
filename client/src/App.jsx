@@ -15,6 +15,9 @@ import StripeCheckout from './components/StripeCheckout';
 import PaymentConfirmation from './components/PaymentConfirmation';
 import AdminLogin from './pages/auth/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
+import UsersList from './components/UsersList';
+import UserRegistrations from './components/UserRegistrations';
+import RegistrationDetails from './components/RegistrationDetails';
 
 function App() {
   return (
@@ -37,6 +40,9 @@ function App() {
           
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/users" element={<UsersList />} />
+          <Route path="/admin/users/:userId/registrations" element={<UserRegistrations />} />
+          <Route path="/admin/registrations/:id" element={<RegistrationDetails />} />
         </Routes>
         <Footer />
       </div>

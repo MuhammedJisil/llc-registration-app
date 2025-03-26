@@ -6,36 +6,15 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle 
-} from "@/components/ui/dialog";
-import { 
   PieChart, 
   Pie, 
   Cell, 
   ResponsiveContainer, 
   Tooltip 
 } from 'recharts';
+import { Button } from "@/components/ui/button";
 import { BASE_URL } from '@/lib/config';
+import { useNavigate } from 'react-router-dom';
 
 const REGISTRATION_STATUSES = [
   { value: 'null', label: 'All Statuses' },
@@ -46,65 +25,17 @@ const REGISTRATION_STATUSES = [
 ];
 
 const AdminDashboard = () => {
-  const [registrations, setRegistrations] = useState([]);
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalRegistrations: [{ count: 0 }],
     registrationsByStatus: [],
-    registrationsByMonth: [],
-    recentRegistrations: []
+    users: {
+      total: 0,
+      newUsers: 0
+    }
   });
-  const [filters, setFilters] = useState({
-    status: 'null',
-    search: '',
-    page: 1,
-    limit: 10
-  });
-  const [selectedRegistration, setSelectedRegistration] = useState(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  // Fetch registrations
-  const fetchRegistrations = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = localStorage.getItem('adminToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      // Convert 'null' to empty string for API call
-      const actualStatus = filters.status === 'null' ? '' : filters.status;
-
-      const queryParams = new URLSearchParams({
-        status: actualStatus,
-        search: filters.search,
-        page: filters.page,
-        limit: filters.limit
-      }).toString();
-
-      const response = await fetch(`${BASE_URL}/api/admin/registrations?${queryParams}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch registrations');
-      }
-
-      const data = await response.json();
-      setRegistrations(data.registrations || []);
-    } catch (error) {
-      console.error('Error fetching registrations:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Fetch dashboard stats
   const fetchDashboardStats = async () => {
@@ -116,28 +47,38 @@ const AdminDashboard = () => {
         throw new Error('No authentication token found');
       }
   
-      const response = await fetch(`${BASE_URL}/api/admin/dashboard-stats`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      // Fetch both registrations and users stats
+      const [registrationsResponse, usersResponse] = await Promise.all([
+        fetch(`${BASE_URL}/api/admin/dashboard-stats`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }),
+        fetch(`${BASE_URL}/api/admin/users?registrationStatus=new`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+      ]);
+
+      if (!registrationsResponse.ok || !usersResponse.ok) {
+        throw new Error('Failed to fetch dashboard stats');
+      }
+
+      const registrationsData = await registrationsResponse.json();
+      const usersData = await usersResponse.json();
+  
+      setStats(prevStats => ({
+        ...prevStats,
+        totalRegistrations: registrationsData.totalRegistrations || [{ count: 0 }],
+        registrationsByStatus: registrationsData.registrationsByStatus || [],
+        users: {
+          total: usersData.totalUsers || 0,
+          newUsers: usersData.users.filter(user => user.is_new).length || 0
         }
-      });
-  
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Dashboard Stats Error:', errorData);
-        throw new Error(errorData.error || 'Failed to fetch dashboard stats');
-      }
-  
-      const data = await response.json();
-      console.log('Dashboard Stats Received:', data); // Log the received data
-      
-      // Add some validation
-      if (!data.totalRegistrations || !data.registrationsByStatus) {
-        console.warn('Incomplete dashboard stats received');
-      }
-  
-      setStats(data);
+      }));
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
       setError(error.message);
@@ -146,80 +87,18 @@ const AdminDashboard = () => {
     }
   };
 
-  // Fetch registration details
-  const fetchRegistrationDetails = async (id) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = localStorage.getItem('adminToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch(`${BASE_URL}/api/admin/registrations/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch registration details');
-      }
-
-      const data = await response.json();
-      setSelectedRegistration(data);
-      setIsDetailsModalOpen(true);
-    } catch (error) {
-      console.error('Error fetching registration details:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Update registration status
-  const updateRegistrationStatus = async (id, status) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = localStorage.getItem('adminToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch(`${BASE_URL}/api/admin/registrations/${id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ status })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update registration status');
-      }
-      
-      fetchRegistrations();
-      fetchDashboardStats();
-    } catch (error) {
-      console.error('Error updating registration status:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchRegistrations();
     fetchDashboardStats();
-  }, [filters.status, filters.search, filters.page]);
+  }, []);
 
   // Color palette for charts
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+
+  // Prepare status distribution data
+  const statusDistributionData = stats.registrationsByStatus.map(status => ({
+    name: status.status,
+    value: parseInt(status.count, 10)  // Ensure numeric value
+  }));
 
   // Render error message
   if (error) {
@@ -229,7 +108,6 @@ const AdminDashboard = () => {
         <p>{error}</p>
         <Button onClick={() => {
           setError(null);
-          fetchRegistrations();
           fetchDashboardStats();
         }}>
           Retry
@@ -237,12 +115,6 @@ const AdminDashboard = () => {
       </div>
     );
   }
-
-  // Prepare status distribution data
-  const statusDistributionData = stats.registrationsByStatus.map(status => ({
-    name: status.status,
-    value: parseInt(status.count, 10)  // Ensure numeric value
-  }));
 
   return (
     <div className="p-6 space-y-6">
@@ -261,6 +133,28 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
 
+        {/* Users Card */}
+        <Card 
+          className="cursor-pointer hover:bg-gray-100 transition-colors"
+          onClick={() => navigate('/admin/users')}
+        >
+          <CardHeader>
+            <CardTitle>Users</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-between items-center">
+              <p className="text-xl">Total Users</p>
+              <p className="text-2xl font-bold">{stats.users.total}</p>
+            </div>
+            <div className="flex justify-between items-center mt-2">
+              <p className="text-sm text-green-600">New Users</p>
+              <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
+                {stats.users.newUsers}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Status Distribution Chart */}
         <Card className="col-span-2">
           <CardHeader>
@@ -268,160 +162,50 @@ const AdminDashboard = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-      <Pie
-        data={statusDistributionData}
-        cx="50%"
-        cy="50%"
-        labelLine={false}
-        outerRadius={80}
-        fill="#8884d8"
-        dataKey="value"
-      >
-        {statusDistributionData.map((entry, index) => (
-          <Cell 
-            key={`cell-${entry.name}`} 
-            fill={COLORS[index % COLORS.length]} 
-          />
-        ))}
-      </Pie>
-      <Tooltip 
-        formatter={(value, name) => [value, `Status: ${name}`]}
-      />
-      {statusDistributionData.length === 0 && (
-        <text x="50%" y="50%" textAnchor="middle" fill="gray">
-          No registration status data
-        </text>
-      )}
-    </PieChart>
+              <PieChart>
+                <Pie
+                  data={statusDistributionData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {statusDistributionData.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${entry.name}`} 
+                      fill={COLORS[index % COLORS.length]} 
+                    />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value, name) => [value, `Status: ${name}`]}
+                />
+                {statusDistributionData.length === 0 && (
+                  <text x="50%" y="50%" textAnchor="middle" fill="gray">
+                    No registration status data
+                  </text>
+                )}
+              </PieChart>
             </ResponsiveContainer>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              {statusDistributionData.map((entry, index) => (
+                <div 
+                  key={entry.name} 
+                  className="flex items-center space-x-2"
+                >
+                  <div 
+                    className="w-4 h-4" 
+                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                  />
+                  <span>{entry.name}: {entry.value}</span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Registrations Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>LLC Registrations</CardTitle>
-            <div className="flex space-x-2">
-              <Input 
-                placeholder="Search..." 
-                value={filters.search}
-                onChange={(e) => setFilters({...filters, search: e.target.value})}
-              />
-              <Select 
-                value={filters.status} 
-                onValueChange={(value) => setFilters({...filters, status: value})}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {REGISTRATION_STATUSES.map((status) => (
-                    <SelectItem 
-                      key={status.value} 
-                      value={status.value}
-                    >
-                      {status.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-center py-4">Loading...</div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Company Name</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>State</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created At</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {registrations.map((reg) => (
-                  <TableRow key={reg.id}>
-                    <TableCell>{reg.company_name}</TableCell>
-                    <TableCell>{reg.user_name}</TableCell>
-                    <TableCell>{reg.state}</TableCell>
-                    <TableCell>{reg.status}</TableCell>
-                    <TableCell>{new Date(reg.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => fetchRegistrationDetails(reg.id)}
-                        >
-                          View Details
-                        </Button>
-                        <Select 
-                          onValueChange={(status) => updateRegistrationStatus(reg.id, status)}
-                        >
-                          <SelectTrigger className="w-[120px]">
-                            <SelectValue placeholder="Update Status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {REGISTRATION_STATUSES.filter(s => s.value !== 'null')
-                              .map((status) => (
-                                <SelectItem 
-                                  key={status.value} 
-                                  value={status.value}
-                                >
-                                  {status.label}
-                                </SelectItem>
-                              ))
-                            }
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Registration Details Modal */}
-      {selectedRegistration && (
-        <Dialog 
-          open={isDetailsModalOpen} 
-          onOpenChange={setIsDetailsModalOpen}
-        >
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Registration Details</DialogTitle>
-            </DialogHeader>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h3 className="font-bold">Company Information</h3>
-                <p>Name: {selectedRegistration.registration.company_name}</p>
-                <p>Type: {selectedRegistration.registration.company_type}</p>
-                <p>State: {selectedRegistration.registration.state}</p>
-                <p>Status: {selectedRegistration.registration.status}</p>
-              </div>
-              <div>
-                <h3 className="font-bold">Owners</h3>
-                {selectedRegistration.owners.map((owner, index) => (
-                  <p key={index}>
-                    {owner.full_name} - {owner.ownership_percentage}%
-                  </p>
-                ))}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 };

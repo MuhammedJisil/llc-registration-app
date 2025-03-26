@@ -1,23 +1,196 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { BASE_URL } from '@/lib/config';
 import { jwtDecode } from 'jwt-decode';
-import { Loader2, FileText, CreditCard, Edit, Trash2, Download } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+import { 
+  Edit,
+  Download,
+  Bell, 
+  Loader2, 
+  CheckCircle2, 
+  EyeOff
+} from 'lucide-react';
+import { 
+  Popover, 
+  PopoverContent, 
+  PopoverTrigger 
+} from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { BASE_URL } from '@/lib/config';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Card, 
+  CardHeader, 
+  CardTitle, 
+  CardDescription, 
+  CardContent,  
+} from "@/components/ui/card";
+
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { 
+  AlertDialog,  
+  AlertDialogContent, 
+  AlertDialogHeader, 
+  AlertDialogFooter, 
+  AlertDialogTitle, 
+  AlertDialogDescription, 
+  AlertDialogCancel, 
+  AlertDialogAction 
 } from "@/components/ui/alert-dialog";
+
+const NotificationBell = () => {
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await axios.get(`${BASE_URL}/api/notifications`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setNotifications(response.data.notifications);
+      setUnreadCount(
+        response.data.notifications.filter(n => !n.is_read).length
+      );
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markNotificationAsRead = async (notificationId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.patch(
+        `${BASE_URL}/api/notifications/${notificationId}/read`, 
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Update local state
+      setNotifications(prev => 
+        prev.map(n => 
+          n.id === notificationId 
+            ? { ...n, is_read: true } 
+            : n
+        )
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.patch(
+        `${BASE_URL}/api/notifications/read-all`, 
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Update local state
+      setNotifications(prev => 
+        prev.map(n => ({ ...n, is_read: true }))
+      );
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="icon" className="relative">
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <Badge 
+              variant="destructive" 
+              className="absolute -top-2 -right-2 px-2 py-1 text-xs"
+            >
+              {unreadCount}
+            </Badge>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-96">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Notifications</h3>
+          {unreadCount > 0 && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={markAllNotificationsAsRead}
+            >
+              Mark all as read
+            </Button>
+          )}
+        </div>
+        
+        {loading ? (
+          <div className="flex justify-center items-center p-4">
+            <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+          </div>
+        ) : notifications.length === 0 ? (
+          <p className="text-center text-gray-500 p-4">
+            No notifications
+          </p>
+        ) : (
+          <ScrollArea className="h-[300px] pr-4">
+            {notifications.map((notification) => (
+              <Card 
+                key={notification.id} 
+                className={`mb-2 ${!notification.is_read ? 'bg-blue-50' : ''}`}
+              >
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-start">
+                    <CardTitle className="text-sm">
+                      {notification.company_name}
+                    </CardTitle>
+                    {!notification.is_read && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => markNotificationAsRead(notification.id)}
+                      >
+                        <EyeOff className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-2">
+                  <p className="text-sm text-gray-600">
+                    {notification.message}
+                  </p>
+                  <div className="flex justify-between items-center mt-2">
+                    <span className="text-xs text-gray-500">
+                      {new Date(notification.created_at).toLocaleString()}
+                    </span>
+                    {notification.is_read ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    ) : null}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </ScrollArea>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const Dashboard = () => {
   const [llcRegistrations, setLlcRegistrations] = useState([]);
@@ -281,9 +454,12 @@ const Dashboard = () => {
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Your Dashboard</h1>
-        <Button onClick={() => navigate('/register-llc', { state: { newRegistration: true }})}>
-          Create New LLC
-        </Button>
+        <div className="flex items-center space-x-4">
+          <NotificationBell />
+          <Button onClick={() => navigate('/register-llc', { state: { newRegistration: true }})}>
+            Create New LLC
+          </Button>
+        </div>
       </div>
 
       {loading ? (
