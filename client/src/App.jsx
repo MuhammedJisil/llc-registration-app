@@ -13,6 +13,8 @@ import Dashboard from './components/Dashboard';
 import LLCRegistrationForm from './components/LLCRegistrationForm';
 import StripeCheckout from './components/StripeCheckout';
 import PaymentConfirmation from './components/PaymentConfirmation';
+import AdminLogin from './pages/auth/AdminLogin';
+import AdminDashboard from './components/AdminDashboard';
 
 function App() {
   return (
@@ -27,11 +29,14 @@ function App() {
           <Route path="/auth-callback" element={<AuthCallback />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} /> 
+
           <Route path="/dashboard" element={<Dashboard/>} /> 
           <Route path="/register-llc" element={<LLCRegistrationForm />} />
           <Route path="/stripe-checkout/:id" element={<StripeCheckout />} />
           <Route path="/payment-confirmation/:id" element={<PaymentConfirmation />} />
           
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
         </Routes>
         <Footer />
       </div>

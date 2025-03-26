@@ -133,6 +133,16 @@ const Login = () => {
             </svg>
             <span>Sign in with Google</span>
           </Button>
+
+          {/* New Admin Login Section */}
+          <div className="mt-4 text-center">
+            <Link 
+              to="/admin/login" 
+              className="text-sm text-gray-600 hover:text-blue-600 hover:underline"
+            >
+              Are you an admin? Log in here
+            </Link>
+          </div>
         </CardContent>
         <CardFooter className="justify-center">
           <div className="text-sm text-gray-600">

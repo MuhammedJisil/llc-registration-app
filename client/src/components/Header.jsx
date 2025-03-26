@@ -7,18 +7,48 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 const Header = () => {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [userProfile, setUserProfile] = useState({
     name: '',
     email: '',
-    picture: ''
+    picture: '',
+    role: ''
   });
 
   useEffect(() => {
-    // Check if user is authenticated
+    // Check for authentication - add a console log to debug
     const token = localStorage.getItem('token');
+    const adminToken = localStorage.getItem('adminToken');
     
-    if (token) {
+    console.log('Authentication check:', { 
+      token: !!token, 
+      adminToken: !!adminToken,
+      userProfile: localStorage.getItem('user_profile')
+    });
+    
+    if (adminToken) {
       setIsAuthenticated(true);
+      setIsAdmin(true);
+      
+      try {
+        const adminData = JSON.parse(localStorage.getItem('adminInfo'));
+        console.log('Admin data retrieved:', adminData);
+        
+        if (adminData) {
+          setUserProfile({
+            name: adminData.full_name || adminData.username || 'Admin',
+            email: adminData.email || '',
+            picture: '',  // Admin might not have a picture
+            role: adminData.role || 'admin'
+          });
+        }
+      } catch (error) {
+        console.error('Error parsing admin profile:', error);
+      }
+    } else if (token) {
+      // Set authenticated state immediately when token exists
+      setIsAuthenticated(true);
+      setIsAdmin(false);
       
       // Get user profile data from localStorage
       try {
@@ -26,9 +56,9 @@ const Header = () => {
         console.log('Header retrieved user profile:', userData);
         
         if (userData) {
-          // Decode the picture URL if it exists
+          // Decode the picture URL if it exists and it's a string
           let pictureUrl = '';
-          if (userData.picture) {
+          if (userData.picture && typeof userData.picture === 'string') {
             try {
               pictureUrl = decodeURIComponent(userData.picture);
               console.log('Decoded picture URL:', pictureUrl);
@@ -39,20 +69,49 @@ const Header = () => {
           }
           
           setUserProfile({
-            name: userData.name || 'User',
+            name: userData.full_name || userData.name || userData.username || 'User',
             email: userData.email || '',
-            picture: pictureUrl
+            picture: pictureUrl || '',
+            role: userData.role || 'User'
+          });
+        } else {
+          // Even if user_profile is missing, we should still show authenticated UI
+          // because we have a token
+          setUserProfile({
+            name: 'User',
+            email: '',
+            picture: '',
+            role: 'User'
           });
         }
       } catch (error) {
         console.error('Error parsing user profile:', error);
+        // Handle the error gracefully by setting default values
+        setUserProfile({
+          name: 'User',
+          email: '',
+          picture: '',
+          role: 'User'
+        });
       }
+    } else {
+      // No token found, ensure we're in unauthenticated state
+      setIsAuthenticated(false);
+      setIsAdmin(false);
     }
   }, []);
+
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user_profile');
+    if (isAdmin) {
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminInfo');
+    } else {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user_profile');
+    }
+    
     setIsAuthenticated(false);
+    setIsAdmin(false);
     navigate('/');
     // You might want to add a toast notification here
   };
@@ -66,6 +125,15 @@ const Header = () => {
     }
     return 'U';
   };
+
+  // Format role display text
+  const formatRole = (role) => {
+    if (!role) return '';
+    return role.charAt(0).toUpperCase() + role.slice(1);
+  };
+
+  // Debug output
+  console.log('Current auth state:', { isAuthenticated, isAdmin, userProfile });
 
   return (
     <header className="w-full py-4 border-b border-gray-200 bg-[#0F172A] text-[#F8FAFC]">
@@ -97,25 +165,39 @@ const Header = () => {
           {isAuthenticated ? (
             <DropdownMenu>
               <DropdownMenuTrigger className="focus:outline-none flex items-center">
-  <span className="mr-2 text-sm hidden md:block">
-    {userProfile.name || userProfile.email || 'User'}
-  </span>
-  <Avatar className="cursor-pointer border-2 border-[#FFD700]">
-    <AvatarImage 
-      src={userProfile.picture} 
-      alt={userProfile.name || 'User'} 
-      referrerPolicy="no-referrer"
-    />
-    <AvatarFallback className="bg-[#FFD700] text-[#0F172A]">{getInitials()}</AvatarFallback>
-  </Avatar>
-</DropdownMenuTrigger>
+                <div className="mr-2 text-sm hidden md:flex flex-col items-end">
+                  <span className="font-medium">{userProfile.name || 'User'}</span>
+                  {userProfile.role && (
+                    <span className="text-xs text-[#FFD700]">{formatRole(userProfile.role)}</span>
+                  )}
+                </div>
+                <Avatar className="cursor-pointer border-2 border-[#FFD700]">
+                  {userProfile.picture ? (
+                    <AvatarImage 
+                      src={userProfile.picture} 
+                      alt={userProfile.name || 'User'} 
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : null}
+                  <AvatarFallback className="bg-[#FFD700] text-[#0F172A]">{getInitials()}</AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-[#0F172A] border border-[#FFD700] text-[#F8FAFC]">
-                <DropdownMenuItem 
-                  className="hover:bg-[#1E293B] cursor-pointer"
-                  onClick={() => navigate('/dashboard')}
-                >
-                  My Account
-                </DropdownMenuItem>
+                {isAdmin ? (
+                  <DropdownMenuItem 
+                    className="hover:bg-[#1E293B] cursor-pointer"
+                    onClick={() => navigate('/admin/dashboard')}
+                  >
+                    Admin Dashboard
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem 
+                    className="hover:bg-[#1E293B] cursor-pointer"
+                    onClick={() => navigate('/dashboard')}
+                  >
+                    My Account
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem 
                   className="hover:bg-[#1E293B] text-red-400 cursor-pointer"
                   onClick={handleLogout}
