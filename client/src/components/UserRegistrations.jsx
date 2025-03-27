@@ -32,12 +32,33 @@ import { Textarea } from "@/components/ui/textarea";
 import { useParams, useNavigate } from 'react-router-dom';
 import { BASE_URL } from '@/lib/config';
 
+// Predefined message templates
 const PREDEFINED_MESSAGES = [
-  { value: 'payment_complete', label: 'Payment Completed' },
-  { value: 'registration_process', label: 'Registration in Process' },
-  { value: 'documents_required', label: 'Additional Documents Required' },
-  { value: 'approved', label: 'Registration Approved' },
-  { value: 'rejected', label: 'Registration Rejected' }
+  { 
+    value: 'payment_complete', 
+    label: 'Payment Completed', 
+    message: 'Your payment for the registration has been successfully processed. Thank you for your cooperation.'
+  },
+  { 
+    value: 'registration_process', 
+    label: 'Registration in Process', 
+    message: 'Your registration is currently under review. We will update you on the status shortly.'
+  },
+  { 
+    value: 'documents_required', 
+    label: 'Additional Documents Required', 
+    message: 'We require additional documentation to proceed with your registration. Please submit the necessary documents at your earliest convenience.'
+  },
+  { 
+    value: 'approved', 
+    label: 'Registration Approved', 
+    message: 'Congratulations! Your registration has been approved. Welcome aboard!'
+  },
+  { 
+    value: 'rejected', 
+    label: 'Registration Rejected', 
+    message: 'We regret to inform you that your registration has been rejected. Please contact our support team for more information.'
+  }
 ];
 
 const UserRegistrations = () => {
@@ -53,12 +74,41 @@ const UserRegistrations = () => {
   const [notificationMessage, setNotificationMessage] = useState({
     type: 'predefined',
     message: '',
-    predefinedMessage: ''
+    predefinedMessage: '',
+    selectedPredefinedKey: ''
   });
   const [notifications, setNotifications] = useState([]);
+  const [userEmail, setUserEmail] = useState(null);
 
   const { userId } = useParams();
   const navigate = useNavigate();
+
+
+  // Fetch user email
+  const fetchUserEmail = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${BASE_URL}/api/admin/users/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user email');
+      }
+
+      const userData = await response.json();
+      console.log('Fetched User Email:', userData.email);
+      setUserEmail(userData.email);
+      return userData.email;
+    } catch (error) {
+      console.error('Error fetching user email:', error);
+      return null;
+    }
+  };
+
 
   // Fetch user registrations
   const fetchUserRegistrations = async () => {
@@ -126,12 +176,43 @@ const UserRegistrations = () => {
     }
   };
 
-  // Send notification
-  const sendNotification = async () => {
+ // Method to open email client
+ const sendEmailViaClient = async () => {
+  // If userEmail is not set, try to fetch it first
+  const email = userEmail || await fetchUserEmail();
+
+  if (!email) {
+    console.error('No email found for the user');
+    return;
+  }
+
+  // Prepare the message
+  const message = notificationMessage.type === 'predefined' 
+    ? notificationMessage.selectedPredefinedKey 
+      ? PREDEFINED_MESSAGES.find(m => m.value === notificationMessage.selectedPredefinedKey)?.message 
+      : ''
+    : notificationMessage.message;
+
+  // Construct email parameters
+  const subject = encodeURIComponent('Registration Update');
+  const body = encodeURIComponent(message);
+
+  console.log('Sending email to:', email);
+  console.log('Subject:', subject);
+  console.log('Body:', body);
+
+  // Open default email client
+  window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+};
+
+  // Send in-app notification
+  const sendInAppNotification = async () => {
     try {
       const token = localStorage.getItem('adminToken');
       const message = notificationMessage.type === 'predefined' 
-        ? notificationMessage.predefinedMessage 
+        ? notificationMessage.selectedPredefinedKey 
+          ? PREDEFINED_MESSAGES.find(m => m.value === notificationMessage.selectedPredefinedKey)?.message 
+          : ''
         : notificationMessage.message;
 
       const response = await fetch(
@@ -160,16 +241,20 @@ const UserRegistrations = () => {
       setNotificationMessage({
         type: 'predefined',
         message: '',
-        predefinedMessage: ''
+        predefinedMessage: '',
+        selectedPredefinedKey: ''
       });
     } catch (error) {
       console.error('Error sending notification:', error);
     }
   };
 
+  
   useEffect(() => {
     fetchUserRegistrations();
+    fetchUserEmail(); // Fetch user email when component mounts
   }, [userId, filters.status, filters.page]);
+
 
   // Render error message
   if (error) {
@@ -207,7 +292,15 @@ const UserRegistrations = () => {
               value={filters.status} 
               onValueChange={(value) => setFilters({...filters, status: value})}
             >
-              {/* Existing status filter */}
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
             </Select>
           </div>
         </CardHeader>
@@ -242,16 +335,23 @@ const UserRegistrations = () => {
                         View Details
                       </Button>
                       <Dialog 
-                        onOpenChange={(open) => {
-                          if (open) {
-                            fetchRegistrationNotifications(registration.id);
-                            setSelectedRegistration(registration);
-                          } else {
-                            setSelectedRegistration(null);
-                            setNotifications([]);
-                          }
-                        }}
-                      >
+        onOpenChange={(open) => {
+          if (open) {
+            fetchRegistrationNotifications(registration.id);
+            setSelectedRegistration(registration);
+          } else {
+            setSelectedRegistration(null);
+            setNotifications([]);
+            // Reset notification message
+            setNotificationMessage({
+              type: 'predefined',
+              message: '',
+              predefinedMessage: '',
+              selectedPredefinedKey: ''
+            });
+          }
+        }}
+      >
                         <DialogTrigger asChild>
                           <Button variant="secondary">
                             Send Notification
@@ -293,10 +393,10 @@ const UserRegistrations = () => {
                               <div className="grid grid-cols-4 items-center gap-4">
                                 <label>Select Message</label>
                                 <Select
-                                  value={notificationMessage.predefinedMessage}
+                                  value={notificationMessage.selectedPredefinedKey}
                                   onValueChange={(value) => setNotificationMessage({
                                     ...notificationMessage,
-                                    predefinedMessage: value
+                                    selectedPredefinedKey: value
                                   })}
                                 >
                                   <SelectTrigger className="col-span-3">
@@ -306,7 +406,7 @@ const UserRegistrations = () => {
                                     {PREDEFINED_MESSAGES.map((msg) => (
                                       <SelectItem 
                                         key={msg.value} 
-                                        value={msg.label}
+                                        value={msg.value}
                                       >
                                         {msg.label}
                                       </SelectItem>
@@ -329,17 +429,31 @@ const UserRegistrations = () => {
                               </div>
                             )}
 
-                            {/* Send Button */}
-                            <Button 
-                              onClick={sendNotification}
-                              disabled={
-                                notificationMessage.type === 'predefined' 
-                                  ? !notificationMessage.predefinedMessage 
-                                  : !notificationMessage.message
-                              }
-                            >
-                              Send Notification
-                            </Button>
+                            {/* Action Buttons */}
+                            <div className="flex space-x-2">
+                              <Button 
+                                onClick={sendInAppNotification}
+                                disabled={
+                                  notificationMessage.type === 'predefined' 
+                                    ? !notificationMessage.selectedPredefinedKey 
+                                    : !notificationMessage.message
+                                }
+                                className="flex-1"
+                              >
+                                Send In-App Notification
+                              </Button>
+                              <Button 
+          variant="outline"
+          onClick={sendEmailViaClient}
+          disabled={
+            notificationMessage.type === 'predefined' 
+              ? !notificationMessage.selectedPredefinedKey 
+              : !notificationMessage.message
+          }
+        >
+          Open Email Client
+        </Button>
+                            </div>
 
                             {/* Notifications List */}
                             <div className="mt-4">
@@ -369,7 +483,7 @@ const UserRegistrations = () => {
                                         <TableCell>
                                           {notification.is_read ? 'Read' : 'Unread'}
                                         </TableCell>
-                                    </TableRow>
+                                      </TableRow>
                                     ))}
                                   </TableBody>
                                 </Table>

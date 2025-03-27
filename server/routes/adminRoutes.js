@@ -95,17 +95,27 @@ router.get('/verify', isAdminAuthenticated, (req, res) => {
 
 
 
-// Updated route to get all users with registration status
-router.get('/users', isAdminAuthenticated, async (req, res) => {
-  try {
-    const { page = 1, limit = 10, search, registrationStatus } = req.query;
-    const offset = (page - 1) * limit;
+//  route to get all users with registration status
+router.get('/users', isAdminAuthenticated, async (req, res) => {   
+  try {     
+    const { page = 1, limit = 10, search, registrationStatus } = req.query;     
+    const offset = (page - 1) * limit;      
+
+    // Updated stats query to correctly count total and registered users
+    const statsQuery = `
+      SELECT 
+        (SELECT COUNT(*) FROM users) as total_users,
+        (SELECT COUNT(DISTINCT user_id) FROM llc_registrations) as registered_users,
+        COUNT(DISTINCT id) as new_users
+      FROM users 
+      WHERE is_new_user = true
+    `;
 
     let query = `
       SELECT DISTINCT
-        u.id, 
-        u.full_name, 
-        u.email, 
+        u.id,
+        u.full_name,
+        u.email,
         u.created_at,
         u.is_new_user,
         COALESCE(llc.registration_count, 0) as registration_count,
@@ -113,49 +123,49 @@ router.get('/users', isAdminAuthenticated, async (req, res) => {
       FROM users u
       LEFT JOIN (
         SELECT user_id, COUNT(*) as registration_count 
-        FROM llc_registrations 
+        FROM llc_registrations
         GROUP BY user_id
       ) llc ON u.id = llc.user_id
       LEFT JOIN llc_registrations r ON u.id = r.user_id
       WHERE 1=1
-    `;
+    `;      
 
     const queryParams = [];
-    let paramIndex = 1;
+    let paramIndex = 1;      
 
-    // Add search filter
-    if (search) {
+    // Add search filter     
+    if (search) {       
       query += ` AND (
         u.full_name ILIKE $${paramIndex} OR 
         u.email ILIKE $${paramIndex}
-      )`;
-      queryParams.push(`%${search}%`);
-      paramIndex++;
-    }
+      )`;       
+      queryParams.push(`%${search}%`);       
+      paramIndex++;     
+    }      
 
-    // Add registration status filter
-    if (registrationStatus === 'registered') {
-      query += ` AND llc.registration_count > 0`;
-    } else if (registrationStatus === 'unregistered') {
-      query += ` AND (llc.registration_count IS NULL OR llc.registration_count = 0)`;
-    }
+    // Add registration status filter     
+    if (registrationStatus === 'registered') {       
+      query += ` AND llc.registration_count > 0`;     
+    } else if (registrationStatus === 'unregistered') {       
+      query += ` AND (llc.registration_count IS NULL OR llc.registration_count = 0)`;     
+    }      
 
-    // Group to ensure unique users
-    query += ` 
+    // Group to ensure unique users     
+    query += `
       GROUP BY 
         u.id, u.full_name, u.email, u.created_at, u.is_new_user, llc.registration_count
       ORDER BY last_registration_at DESC NULLS LAST
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `;
-    queryParams.push(limit, offset);
+    `;     
+    queryParams.push(limit, offset);      
 
-    // Get total count query with similar filtering
+    // Get total count query with similar filtering     
     const countQuery = `
       SELECT COUNT(DISTINCT u.id) as total 
       FROM users u
       LEFT JOIN (
         SELECT user_id, COUNT(*) as registration_count 
-        FROM llc_registrations 
+        FROM llc_registrations
         GROUP BY user_id
       ) llc ON u.id = llc.user_id
       WHERE 1=1
@@ -165,40 +175,25 @@ router.get('/users', isAdminAuthenticated, async (req, res) => {
       )` : ''}
       ${registrationStatus === 'registered' ? ` AND llc.registration_count > 0` : ''}
       ${registrationStatus === 'unregistered' ? ` AND (llc.registration_count IS NULL OR llc.registration_count = 0)` : ''}
-    `;
+    `;      
 
-    const [usersResult, countResult] = await Promise.all([
+    const [usersResult, countResult, statsResult] = await Promise.all([       
       pool.query(query, queryParams),
-      pool.query(countQuery, search ? [queryParams[0]] : [])
-    ]);
+      pool.query(countQuery, search ? [queryParams[0]] : []),
+      pool.query(statsQuery)
+    ]);      
 
-    // Fetch total user, registered user, and new user stats without filtering
-    const statsQuery = `
-      SELECT 
-        COUNT(DISTINCT id) as total_users,
-        COUNT(DISTINCT CASE WHEN llc.registration_count > 0 THEN id END) as registered_users,
-        COUNT(DISTINCT CASE WHEN is_new_user = true THEN id END) as new_users
-      FROM users u
-      LEFT JOIN (
-        SELECT user_id, COUNT(*) as registration_count 
-        FROM llc_registrations 
-        GROUP BY user_id
-      ) llc ON u.id = llc.user_id
-      WHERE is_new_user = true  -- Only count users still marked as new
-    `;
-    const statsResult = await pool.query(statsQuery);
-
-    res.status(200).json({
+    res.status(200).json({       
       users: usersResult.rows,
       totalUsers: parseInt(countResult.rows[0].total),
       stats: statsResult.rows[0],
       page: parseInt(page),
       limit: parseInt(limit)
-    });
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+    });   
+  } catch (error) {     
+    console.error('Error fetching users:', error);     
+    res.status(500).json({ error: 'Internal server error' });   
+  } 
 });
 
 // Updated route to get admin-specific notifications
@@ -460,9 +455,19 @@ router.patch('/registrations/:id/status', isAdminAuthenticated, async (req, res)
 });
 
 // Dashboard statistics
-router.get('/dashboard-stats', isAdminAuthenticated, async (req, res) => {
-  try {
+router.get('/dashboard-stats', isAdminAuthenticated, async (req, res) => {   
+  try {     
     const statsQueries = {
+      // Total users query
+      totalUsers: `SELECT COUNT(*) as count FROM users`,
+      
+      // New users query
+      newUsers: `SELECT COUNT(*) as count FROM users WHERE is_new_user = true`,
+      
+      // Registered users query (distinct users with registrations)
+      registeredUsers: `SELECT COUNT(DISTINCT user_id) as count FROM llc_registrations`,
+      
+      // Existing queries remain the same
       totalRegistrations: `SELECT COUNT(*) as count FROM llc_registrations`,
       registrationsByStatus: `
         SELECT status, COUNT(*) as count 
@@ -471,7 +476,7 @@ router.get('/dashboard-stats', isAdminAuthenticated, async (req, res) => {
       `,
       registrationsByMonth: `
         SELECT 
-          DATE_TRUNC('month', created_at) as month, 
+          DATE_TRUNC('month', created_at) as month,
           COUNT(*) as count 
         FROM llc_registrations 
         GROUP BY month 
@@ -480,27 +485,55 @@ router.get('/dashboard-stats', isAdminAuthenticated, async (req, res) => {
       `,
       recentRegistrations: `
         SELECT 
-          r.id, 
-          r.company_name, 
-          r.status, 
+          r.id,
+          r.company_name,
+          r.status,
           r.created_at,
-          u.full_name as user_name
-        FROM llc_registrations r
-        JOIN users u ON r.user_id = u.id
+          u.full_name as user_name 
+        FROM llc_registrations r 
+        JOIN users u ON r.user_id = u.id 
         ORDER BY r.created_at DESC 
         LIMIT 5
       `
-    };
+    };      
 
     const stats = {};
     for (const [key, query] of Object.entries(statsQueries)) {
       const result = await pool.query(query);
       stats[key] = result.rows;
-    }
+    }      
 
     res.status(200).json(stats);
+  } catch (error) {     
+    console.error('Error fetching dashboard stats:', error);     
+    res.status(500).json({ error: 'Internal server error' });   
+  } 
+});
+
+// Get user details by ID
+router.get('/users/:userId', isAdminAuthenticated, async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const query = `
+      SELECT 
+        id, 
+        full_name, 
+        email, 
+        created_at
+      FROM users
+      WHERE id = $1
+    `;
+
+    const result = await pool.query(query, [userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.status(200).json(result.rows[0]);
   } catch (error) {
-    console.error('Error fetching dashboard stats:', error);
+    console.error('Error fetching user details:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -38,53 +38,46 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(false);
 
   // Fetch dashboard stats
-  const fetchDashboardStats = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = localStorage.getItem('adminToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
+  const fetchDashboardStats = async () => {     
+    setLoading(true);     
+    setError(null);     
+    try {       
+      const token = localStorage.getItem('adminToken');       
+      if (!token) {         
+        throw new Error('No authentication token found');       
+      }          
   
-      // Fetch both registrations and users stats
-      const [registrationsResponse, usersResponse] = await Promise.all([
-        fetch(`${BASE_URL}/api/admin/dashboard-stats`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }),
-        fetch(`${BASE_URL}/api/admin/users?registrationStatus=new`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-      ]);
-
-      if (!registrationsResponse.ok || !usersResponse.ok) {
+      // Fetch dashboard stats
+      const response = await fetch(`${BASE_URL}/api/admin/dashboard-stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+  
+      if (!response.ok) {
         throw new Error('Failed to fetch dashboard stats');
       }
-
-      const registrationsData = await registrationsResponse.json();
-      const usersData = await usersResponse.json();
+  
+      const data = await response.json();
   
       setStats(prevStats => ({
         ...prevStats,
-        totalRegistrations: registrationsData.totalRegistrations || [{ count: 0 }],
-        registrationsByStatus: registrationsData.registrationsByStatus || [],
+        totalRegistrations: data.totalRegistrations || [{ count: 0 }],
+        registrationsByStatus: data.registrationsByStatus || [],
         users: {
-          total: usersData.totalUsers || 0,
-          newUsers: usersData.users.filter(user => user.is_new).length || 0
+          total: data.totalUsers[0].count || 0,
+          newUsers: data.newUsers[0].count || 0,
+          registeredUsers: data.registeredUsers[0].count || 0
         }
       }));
-    } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
+  
+    } catch (error) {       
+      console.error('Error fetching dashboard stats:', error);       
+      setError(error.message);     
+    } finally {       
+      setLoading(false);     
+    }   
   };
 
   useEffect(() => {
