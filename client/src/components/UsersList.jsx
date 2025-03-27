@@ -23,8 +23,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { 
+  Bell, 
+  CheckCircle,
+  X
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BASE_URL } from '@/lib/config';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const Userslist = () => {
   const [users, setUsers] = useState([]);
@@ -33,25 +39,27 @@ const Userslist = () => {
     newUsers: 0,
     registeredUsers: 0
   });
+  const [notifications, setNotifications] = useState([]);
   const [filters, setFilters] = useState({
     search: '',
-    registrationStatus: 'all', // Ensure this is not an empty string
+    registrationStatus: 'all',
     page: 1,
     limit: 10
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const navigate = useNavigate();
 
-  // Explicitly define registration status options with non-empty values
+  // Registration status options
   const REGISTRATION_STATUS_OPTIONS = [
     { value: 'all', label: 'All Users' },
     { value: 'registered', label: 'Registered Users' },
     { value: 'unregistered', label: 'Unregistered Users' }
   ];
 
-  // Fetch users
-  const fetchUsers = async () => {
+  // Fetch users and notifications
+  const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -68,7 +76,59 @@ const Userslist = () => {
         limit: filters.limit.toString()
       }).toString();
 
-      const response = await fetch(`${BASE_URL}/api/admin/users?${queryParams}`, {
+      // Fetch users
+      const usersResponse = await fetch(`${BASE_URL}/api/admin/users?${queryParams}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!usersResponse.ok) {
+        const errorData = await usersResponse.json();
+        throw new Error(errorData.error || 'Failed to fetch users');
+      }
+
+      const userData = await usersResponse.json();
+      setUsers(userData.users || []);
+      
+      // Set stats from backend calculation
+      setStats({
+        totalUsers: userData.stats.total_users,
+        newUsers: userData.stats.new_users,
+        registeredUsers: userData.stats.registered_users
+      });
+
+      // Fetch notifications
+      const notificationsResponse = await fetch(`${BASE_URL}/api/admin/admin-notifications`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!notificationsResponse.ok) {
+        const errorData = await notificationsResponse.json();
+        throw new Error(errorData.error || 'Failed to fetch notifications');
+      }
+
+      const notificationsData = await notificationsResponse.json();
+      setNotifications(notificationsData.notifications || []);
+
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Mark notification as read
+  const markNotificationAsRead = async (notificationId) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${BASE_URL}/api/admin/admin-notifications/${notificationId}/read`, {
+        method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -76,32 +136,29 @@ const Userslist = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch users');
+        throw new Error('Failed to mark notification as read');
       }
 
-      const data = await response.json();
-      setUsers(data.users || []);
-      
-      // Calculate stats
-      setStats({
-        totalUsers: data.totalUsers,
-        newUsers: data.users.filter(user => user.is_new).length,
-        registeredUsers: data.users.filter(user => user.registration_count > 0).length
-      });
+      // Update local state to remove or mark as read
+      setNotifications(notifications.map(notif => 
+        notif.id === notificationId 
+          ? { ...notif, is_read: true } 
+          : notif
+      ));
     } catch (error) {
-      console.error('Error fetching users:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
+      console.error('Error marking notification as read:', error);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, [filters.search, filters.registrationStatus, filters.page]);
+    fetchData();
+  }, [
+    filters.search, 
+    filters.registrationStatus, 
+    filters.page
+  ]);
 
-  // Render error message
+  // Error handling
   if (error) {
     return (
       <div className="p-6 text-red-500">
@@ -109,7 +166,7 @@ const Userslist = () => {
         <p>{error}</p>
         <Button onClick={() => {
           setError(null);
-          fetchUsers();
+          fetchData();
         }}>
           Retry
         </Button>
@@ -119,7 +176,64 @@ const Userslist = () => {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Users Management</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Users Management</h1>
+        
+        {/* Notifications Panel */}
+        <Popover open={isNotificationOpen} onOpenChange={setIsNotificationOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="icon" className="relative">
+              <Bell className="h-5 w-5" />
+              {notifications.filter(n => !n.is_read).length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full px-2 py-1 text-xs">
+                  {notifications.filter(n => !n.is_read).length}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-96 max-h-96 overflow-y-auto p-0">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Notifications</h3>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setIsNotificationOpen(false)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            {notifications.length === 0 ? (
+              <div className="p-4 text-center text-gray-500">
+                No notifications
+              </div>
+            ) : (
+              notifications.map((notif) => (
+                <div 
+                  key={notif.id} 
+                  className={`p-4 border-b flex justify-between items-center ${!notif.is_read ? 'bg-blue-50' : ''}`}
+                >
+                  <div>
+                    <p className="font-bold">{notif.full_name}</p>
+                    <p className="text-sm text-gray-600">{notif.message}</p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(notif.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  {!notif.is_read && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => markNotificationAsRead(notif.id)}
+                    >
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    </Button>
+                  )}
+                </div>
+              ))
+            )}
+          </PopoverContent>
+        </Popover>
+      </div>
 
       {/* User Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -128,7 +242,9 @@ const Userslist = () => {
             <CardTitle>Total Users</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{stats.totalUsers}</p>
+            <div className="text-2xl font-bold">
+              {stats.totalUsers}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -136,7 +252,9 @@ const Userslist = () => {
             <CardTitle>Registered Users</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{stats.registeredUsers}</p>
+            <div className="text-2xl font-bold">
+              {stats.registeredUsers}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -144,14 +262,14 @@ const Userslist = () => {
             <CardTitle>New Users</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">
+            <div className="text-2xl font-bold">
               {stats.newUsers}
               {stats.newUsers > 0 && (
                 <Badge variant="destructive" className="ml-2">
                   New
                 </Badge>
               )}
-            </p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -199,7 +317,6 @@ const Userslist = () => {
                   <TableHead>Email</TableHead>
                   <TableHead>Registration Count</TableHead>
                   <TableHead>Created At</TableHead>
-                  <TableHead>Last Login</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -207,22 +324,19 @@ const Userslist = () => {
                 {users.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell>
-                      {user.full_name}
-                      {user.is_new && (
-                        <Badge variant="destructive" className="ml-2">
-                          New
-                        </Badge>
-                      )}
+                      <div className="flex items-center">
+                        {user.full_name}
+                        {user.is_new_user && (
+                          <Badge variant="destructive" className="ml-2">
+                            New
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{user.registration_count || 0}</TableCell>
                     <TableCell>
                       {new Date(user.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      {user.last_login 
-                        ? new Date(user.last_login).toLocaleDateString() 
-                        : 'Never'}
                     </TableCell>
                     <TableCell>
                       <Button 

@@ -8,7 +8,9 @@ import {
   Bell, 
   Loader2, 
   CheckCircle2, 
-  EyeOff
+  EyeOff,
+  CreditCard,
+  Trash2
 } from 'lucide-react';
 import { 
   Popover, 

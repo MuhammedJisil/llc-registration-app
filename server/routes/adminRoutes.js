@@ -95,31 +95,28 @@ router.get('/verify', isAdminAuthenticated, (req, res) => {
 
 
 
-// New route to get all users with registration status
+// Updated route to get all users with registration status
 router.get('/users', isAdminAuthenticated, async (req, res) => {
   try {
     const { page = 1, limit = 10, search, registrationStatus } = req.query;
     const offset = (page - 1) * limit;
 
     let query = `
-      SELECT 
+      SELECT DISTINCT
         u.id, 
         u.full_name, 
         u.email, 
         u.created_at,
+        u.is_new_user,
         COALESCE(llc.registration_count, 0) as registration_count,
-        COALESCE(new_users.is_new, false) as is_new
+        MAX(r.created_at) as last_registration_at
       FROM users u
       LEFT JOIN (
         SELECT user_id, COUNT(*) as registration_count 
         FROM llc_registrations 
         GROUP BY user_id
       ) llc ON u.id = llc.user_id
-      LEFT JOIN (
-        SELECT user_id, true as is_new 
-        FROM llc_registrations 
-        WHERE created_at > NOW() - INTERVAL '7 days'
-      ) new_users ON u.id = new_users.user_id
+      LEFT JOIN llc_registrations r ON u.id = r.user_id
       WHERE 1=1
     `;
 
@@ -143,16 +140,18 @@ router.get('/users', isAdminAuthenticated, async (req, res) => {
       query += ` AND (llc.registration_count IS NULL OR llc.registration_count = 0)`;
     }
 
-    // Add pagination and ordering
+    // Group to ensure unique users
     query += ` 
-      ORDER BY u.created_at DESC 
+      GROUP BY 
+        u.id, u.full_name, u.email, u.created_at, u.is_new_user, llc.registration_count
+      ORDER BY last_registration_at DESC NULLS LAST
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     queryParams.push(limit, offset);
 
-    // Get total count query
+    // Get total count query with similar filtering
     const countQuery = `
-      SELECT COUNT(*) as total 
+      SELECT COUNT(DISTINCT u.id) as total 
       FROM users u
       LEFT JOIN (
         SELECT user_id, COUNT(*) as registration_count 
@@ -173,14 +172,80 @@ router.get('/users', isAdminAuthenticated, async (req, res) => {
       pool.query(countQuery, search ? [queryParams[0]] : [])
     ]);
 
+    // Fetch total user, registered user, and new user stats without filtering
+    const statsQuery = `
+      SELECT 
+        COUNT(DISTINCT id) as total_users,
+        COUNT(DISTINCT CASE WHEN llc.registration_count > 0 THEN id END) as registered_users,
+        COUNT(DISTINCT CASE WHEN is_new_user = true THEN id END) as new_users
+      FROM users u
+      LEFT JOIN (
+        SELECT user_id, COUNT(*) as registration_count 
+        FROM llc_registrations 
+        GROUP BY user_id
+      ) llc ON u.id = llc.user_id
+      WHERE is_new_user = true  -- Only count users still marked as new
+    `;
+    const statsResult = await pool.query(statsQuery);
+
     res.status(200).json({
       users: usersResult.rows,
       totalUsers: parseInt(countResult.rows[0].total),
+      stats: statsResult.rows[0],
       page: parseInt(page),
       limit: parseInt(limit)
     });
   } catch (error) {
     console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Updated route to get admin-specific notifications
+router.get('/admin-notifications', isAdminAuthenticated, async (req, res) => {
+ try {
+    const query = `
+      SELECT 
+        an.id, 
+        an.user_id, 
+        an.registration_id, 
+        an.type, 
+        an.message, 
+        an.is_read, 
+        an.created_at,
+        u.full_name,
+        r.company_name
+      FROM admin_notifications an
+      JOIN users u ON an.user_id = u.id
+      LEFT JOIN llc_registrations r ON an.registration_id = r.id
+      ORDER BY an.created_at DESC
+      LIMIT 50
+    `;
+
+    const result = await pool.query(query);
+
+    res.status(200).json({
+      notifications: result.rows
+    });
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Mark admin notification as read
+router.patch('/admin-notifications/:id/read', isAdminAuthenticated, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const query = `
+      UPDATE admin_notifications 
+      SET is_read = true 
+      WHERE id = $1
+    `;
+    await pool.query(query, [id]);
+    res.status(200).json({ message: 'Admin notification marked as read' });
+  } catch (error) {
+    console.error('Error marking admin notification as read:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
