@@ -427,13 +427,24 @@ router.delete('/llc-registrations/:id', async (req, res) => {
       [id]
     );
 
-    // Delete files from Cloudinary
-    for (const doc of documentsResult.rows) {
-      const publicId = getPublicIdFromUrl(doc.file_path);
-      if (publicId) {
-        await deleteFile(publicId);
-      }
-    }
+   // In your deletion route
+for (const doc of documentsResult.rows) {
+  const publicId = getPublicIdFromUrl(doc.file_path);
+  if (publicId) {
+    // Use the URL path to determine resource type, not file extension
+    const resourceType = doc.file_path.includes('/image/upload/') ? 'image' : 'raw';
+    
+    const deleteResult = await deleteFile(publicId, resourceType);
+    
+    console.log('Delete result:', {
+      originalPath: doc.file_path,
+      publicId: publicId,
+      resourceType: resourceType,
+      success: deleteResult.success,
+      message: deleteResult.message
+    });
+  }
+}
 
     // Delete additional documents from database
     await pool.query(

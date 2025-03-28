@@ -57,36 +57,51 @@ const upload = multer({
   }
 });
 
-// Function to delete file from Cloudinary
-const deleteFile = async (publicId) => {
+const deleteFile = async (publicId, resourceType) => {
   try {
     if (!publicId) return { success: false, message: 'No public ID provided' };
-    
-    const result = await cloudinary.uploader.destroy(publicId);
-    return { success: result.result === 'ok', message: result.result };
+
+    console.log('Deleting file:', { publicId, resourceType });
+
+    const result = await cloudinary.uploader.destroy(publicId, {
+      resource_type: resourceType
+    });
+
+    return { 
+      success: result.result === 'ok' || result.result === 'not found', 
+      message: result.result 
+    };
   } catch (error) {
-    console.error('Error deleting file from Cloudinary:', error);
+    console.error(`Error deleting file from Cloudinary:`, error);
     return { success: false, message: error.message };
   }
 };
 
-// Extract public ID from Cloudinary URL
+
 const getPublicIdFromUrl = (url) => {
   if (!url) return null;
-  
+
   try {
-    // URL format: https://res.cloudinary.com/cloud-name/image/upload/v1234567890/folder/filename.ext
-    // Extract the part after the last '/' and before the file extension
-    const splitUrl = url.split('/');
-    const fileWithExtension = splitUrl[splitUrl.length - 1];
-    const fileWithoutExtension = fileWithExtension.split('.')[0];
+    // Parse the URL
+    const urlParts = new URL(url);
     
-    // Get the folder path (excluding the version segment)
-    const versionSegmentIndex = splitUrl.findIndex(segment => segment.startsWith('v') && /^v\d+$/.test(segment));
-    const folderPath = splitUrl.slice(versionSegmentIndex + 1, -1).join('/');
+    // Split the path
+    const pathSegments = urlParts.pathname.split('/');
     
-    // Combine folder path and filename without extension
-    return folderPath ? `${folderPath}/${fileWithoutExtension}` : fileWithoutExtension;
+    // Find the index after 'upload'
+    const uploadIndex = pathSegments.indexOf('upload');
+    
+    if (uploadIndex === -1) return null;
+
+    // Get segments after version (skip version segment)
+    const pathWithoutVersion = pathSegments.slice(uploadIndex + 2);
+    
+    // Join the remaining segments and decode
+    const publicId = pathWithoutVersion.join('/')
+      .replace(/\.(pdf|png|jpg|jpeg)$/, '');  // Remove file extension
+
+    // Decode URL-encoded characters
+    return decodeURIComponent(publicId);
   } catch (error) {
     console.error('Error extracting public ID from URL:', error);
     return null;
