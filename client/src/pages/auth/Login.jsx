@@ -34,10 +34,6 @@ const Login = () => {
       // Store token in localStorage
       localStorage.setItem('token', data.token);
       
-      toast.success('Login successful', {
-        description: 'Welcome back!'
-      });
-      
       navigate('/dashboard');
     } catch (error) {
       toast.error('Login failed', {
