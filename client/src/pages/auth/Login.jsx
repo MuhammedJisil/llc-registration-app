@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,78 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check for auth callback from Google login
+    const checkGoogleAuthCallback = async () => {
+      const authIntent = localStorage.getItem('auth_intent');
+      const token = localStorage.getItem('token');
+
+      if (authIntent === 'login' && token) {
+        try {
+          // Fetch user profile after Google login
+          const profileFetched = await fetchUserProfile(token);
+          
+          if (profileFetched) {
+            toast.success('Login Successful', {
+              description: 'You have been logged in successfully'
+            });
+            navigate('/dashboard');
+          }
+
+          // Clear the auth intent
+          localStorage.removeItem('auth_intent');
+        } catch (error) {
+          console.error('Google login callback error:', error);
+          toast.error('Login Failed', {
+            description: 'Unable to complete login process'
+          });
+        }
+      }
+    };
+
+    checkGoogleAuthCallback();
+  }, [navigate]);
+
+  const fetchUserProfile = async (token) => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/user/profile`, {
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store user profile in localStorage
+        const profileData = {
+          id: data.user.id,
+          name: data.user.full_name || data.user.username || 'User',
+          email: data.user.email,
+          role: data.user.role || 'User',
+          picture: data.user.picture || '' // Add picture logic if needed
+        };
+
+        localStorage.setItem('user_profile', JSON.stringify(profileData));
+        
+        // Dispatch custom event to update header
+        window.dispatchEvent(new Event('user-logged-in'));
+        
+        return true;
+      } else {
+        throw new Error(data.message || 'Failed to fetch user profile');
+      }
+    } catch (error) {
+      console.error('Profile fetch error:', error);
+      toast.error('Unable to fetch user profile', {
+        description: error.message
+      });
+      return false;
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -34,7 +106,18 @@ const Login = () => {
       // Store token in localStorage
       localStorage.setItem('token', data.token);
       
-      navigate('/dashboard');
+      // Fetch and store user profile
+      const profileFetched = await fetchUserProfile(data.token);
+
+      if (profileFetched) {
+        toast.success('Login Successful', {
+          description: 'You have been logged in successfully'
+        });
+        navigate('/');
+      } else {
+        // Fallback navigation if profile fetch fails
+        navigate('/');
+      }
     } catch (error) {
       toast.error('Login failed', {
         description: error.message
@@ -50,7 +133,6 @@ const Login = () => {
     // Use the full URL to the backend endpoint
     window.location.href = `${BASE_URL}/api/auth/google`;
   };
-
   return (
     <div className="container mx-auto flex items-center justify-center min-h-screen p-4">
       <Card className="w-full max-w-md">

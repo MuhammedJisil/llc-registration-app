@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { BASE_URL } from '@/lib/config';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -15,90 +17,112 @@ const Header = () => {
     role: ''
   });
 
+  // Function to fetch user profile
+  const fetchUserProfile = async (token) => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/user/profile`, {
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const profileData = {
+          name: data.user.full_name || data.user.username || 'User',
+          email: data.user.email,
+          picture: data.user.picture || '', // Add picture logic if needed
+          role: data.user.role || 'User'
+        };
+
+        // Update localStorage
+        localStorage.setItem('user_profile', JSON.stringify(profileData));
+        
+        // Update state
+        setUserProfile(profileData);
+        setIsAuthenticated(true);
+        return true;
+      } else {
+        console.error('Failed to fetch profile:', data.message);
+        return false;
+      }
+    } catch (error) {
+      console.error('Profile fetch error:', error);
+      return false;
+    }
+  };
+
   useEffect(() => {
-    // Check for authentication - add a console log to debug
+    // Listen for custom event that can be triggered after login
+    const handleProfileUpdate = async (event) => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetchUserProfile(token);
+      }
+    };
+
+    // Add event listener
+    window.addEventListener('user-logged-in', handleProfileUpdate);
+
+    // Initial authentication check
     const token = localStorage.getItem('token');
     const adminToken = localStorage.getItem('adminToken');
     
-    console.log('Authentication check:', { 
-      token: !!token, 
-      adminToken: !!adminToken,
-      userProfile: localStorage.getItem('user_profile')
-    });
-    
-    if (adminToken) {
-      setIsAuthenticated(true);
-      setIsAdmin(true);
-      
-      try {
-        const adminData = JSON.parse(localStorage.getItem('adminInfo'));
-        console.log('Admin data retrieved:', adminData);
+    const checkAuthentication = async () => {
+      if (adminToken) {
+        setIsAuthenticated(true);
+        setIsAdmin(true);
         
-        if (adminData) {
-          setUserProfile({
-            name: adminData.full_name || adminData.username || 'Admin',
-            email: adminData.email || '',
-            picture: '',  // Admin might not have a picture
-            role: adminData.role || 'admin'
-          });
-        }
-      } catch (error) {
-        console.error('Error parsing admin profile:', error);
-      }
-    } else if (token) {
-      // Set authenticated state immediately when token exists
-      setIsAuthenticated(true);
-      setIsAdmin(false);
-      
-      // Get user profile data from localStorage
-      try {
-        const userData = JSON.parse(localStorage.getItem('user_profile'));
-        console.log('Header retrieved user profile:', userData);
-        
-        if (userData) {
-          // Decode the picture URL if it exists and it's a string
-          let pictureUrl = '';
-          if (userData.picture && typeof userData.picture === 'string') {
-            try {
-              pictureUrl = decodeURIComponent(userData.picture);
-              console.log('Decoded picture URL:', pictureUrl);
-            } catch (e) {
-              console.error('Error decoding picture URL:', e);
-              pictureUrl = userData.picture; // Use as-is if decoding fails
-            }
-          }
+        try {
+          const adminData = JSON.parse(localStorage.getItem('adminInfo'));
           
-          setUserProfile({
-            name: userData.full_name || userData.name || userData.username || 'User',
-            email: userData.email || '',
-            picture: pictureUrl || '',
-            role: userData.role || 'User'
-          });
-        } else {
-          // Even if user_profile is missing, we should still show authenticated UI
-          // because we have a token
-          setUserProfile({
-            name: 'User',
-            email: '',
-            picture: '',
-            role: 'User'
-          });
+          if (adminData) {
+            setUserProfile({
+              name: adminData.full_name || adminData.username || 'Admin',
+              email: adminData.email || '',
+              picture: '',
+              role: adminData.role || 'admin'
+            });
+          }
+        } catch (error) {
+          console.error('Error parsing admin profile:', error);
         }
-      } catch (error) {
-        console.error('Error parsing user profile:', error);
-        // Handle the error gracefully by setting default values
-        setUserProfile({
-          name: 'User',
-          email: '',
-          picture: '',
-          role: 'User'
-        });
+      } else if (token) {
+        // Attempt to fetch user profile if not already in localStorage
+        const storedProfile = localStorage.getItem('user_profile');
+        
+        if (storedProfile) {
+          try {
+            const userData = JSON.parse(storedProfile);
+            setUserProfile({
+              name: userData.name || userData.full_name || 'User',
+              email: userData.email || '',
+              picture: userData.picture || '',
+              role: userData.role || 'User'
+            });
+            setIsAuthenticated(true);
+          } catch (error) {
+            console.error('Error parsing user profile:', error);
+          }
+        } else {
+          // If no profile in localStorage, fetch it
+          await fetchUserProfile(token);
+        }
+      } else {
+        setIsAuthenticated(false);
+        setIsAdmin(false);
       }
-    } else {
-      // No token found, ensure we're in unauthenticated state
-      setIsAuthenticated(false);
-      setIsAdmin(false);
-    }
+    };
+
+    checkAuthentication();
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('user-logged-in', handleProfileUpdate);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -112,8 +136,13 @@ const Header = () => {
     
     setIsAuthenticated(false);
     setIsAdmin(false);
+    
+    // Show logout toast
+    toast.success('Logged Out', {
+      description: 'You have been successfully logged out'
+    });
+    
     navigate('/');
-    // You might want to add a toast notification here
   };
 
   // Get initial for the avatar fallback
@@ -131,9 +160,6 @@ const Header = () => {
     if (!role) return '';
     return role.charAt(0).toUpperCase() + role.slice(1);
   };
-
-  // Debug output
-  console.log('Current auth state:', { isAuthenticated, isAdmin, userProfile });
 
   return (
     <header className="w-full py-4 border-b border-gray-200 bg-[#0F172A] text-[#F8FAFC]">
