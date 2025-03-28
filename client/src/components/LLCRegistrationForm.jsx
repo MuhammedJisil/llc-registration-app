@@ -644,19 +644,19 @@ const handleSubmit = async () => {
       if (!token) {
         throw new Error("User authentication token is missing. Please log in again.");
       }
-      
+  
       const decodedToken = jwtDecode(token);
       const userId = decodedToken.id;
-      
+  
       if (!userId) {
         throw new Error("User ID not found in token. Please log in again.");
       }
-      
+  
       const registrationId = localStorage.getItem(`registrationId_${userId}`);
-      
+  
       const response = await axios.get(`${BASE_URL}/api/llc-registrations/${registrationId}/pdf`, {
         responseType: "blob",
-        params: { userId } // Pass userId as a query parameter
+        params: { userId }
       });
   
       // Create a download link
@@ -666,9 +666,33 @@ const handleSubmit = async () => {
       link.setAttribute("download", `${formValues.companyName || "LLC"}_Registration_Summary.pdf`);
       document.body.appendChild(link);
       link.click();
+      
+      // Clean up
+      window.URL.revokeObjectURL(url);
       document.body.removeChild(link);
+  
+      // Optional: Additional handling for document URLs
+      const documentUrls = response.data.documentUrls || [];
+      documentUrls.forEach(doc => {
+        if (doc.name.toLowerCase().endsWith('.pdf')) {
+          // You can add additional handling for PDF URLs if needed
+          console.log(`PDF Document: ${doc.name}, URL: ${doc.url}`);
+        }
+      });
+  
     } catch (error) {
       console.error("Error downloading PDF:", error);
+      // Optionally, handle specific error scenarios
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        console.error("Server responded with error:", error.response.data);
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error("No response received from server");
+      } else {
+        // Something happened in setting up the request
+        console.error("Error setting up the request:", error.message);
+      }
     } finally {
       setIsLoading(false);
     }

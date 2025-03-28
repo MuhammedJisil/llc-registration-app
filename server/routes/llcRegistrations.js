@@ -723,12 +723,23 @@ router.get("/llc-registrations/:id/pdf", async (req, res) => {
         if (document.file_path) {
           // Check if it's a PDF
           if (document.file_name.toLowerCase().endsWith('.pdf')) {
-            doc.fontSize(11).text(`PDF Document: ${document.file_name}`, 70, yPos);
+            // Create a clickable link for PDF
+            doc.fontSize(11)
+               .fillColor('blue')
+               .text(`PDF Document: ${document.file_name}`, 70, yPos, {
+                 link: document.file_path,
+                 underline: true
+               });
             yPos += 20;
-            doc.fontSize(11).text(`(PDF documents cannot be embedded - URL: ${document.file_path})`, 70, yPos);
+            
+            // Add the full URL as text for reference
+            doc.fontSize(10)
+               .fillColor('black')
+               .text(`URL: ${document.file_path}`, 70, yPos);
             yPos += 20;
-          } else {
-            // It's an image that we will download and embed
+          } 
+          // Handle image documents
+          else if (/\.(jpg|jpeg|png|gif|bmp)$/i.test(document.file_name)) {
             try {
               // Add a note about the file
               doc.fontSize(10).text(`File: ${document.file_name}`, 70, yPos);
