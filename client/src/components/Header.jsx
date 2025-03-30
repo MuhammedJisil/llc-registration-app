@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { BASE_URL } from '@/lib/config';
 
 const Header = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userProfile, setUserProfile] = useState({
@@ -17,10 +17,35 @@ const Header = () => {
     role: ''
   });
 
+  // Function to scroll to section (used when on homepage)
+  const scrollToSection = (sectionId) => {
+    const section = document.getElementById(sectionId);
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  // Function to handle navigation menu clicks
+  // If on homepage ('/'), scroll to section, otherwise navigate to homepage
+  const handleNavigation = (sectionId) => {
+    if (location.pathname === '/') {
+      scrollToSection(sectionId);
+    } else {
+      navigate('/');
+      // Setting a small timeout to allow the page to load before scrolling
+      setTimeout(() => {
+        const section = document.getElementById(sectionId);
+        if (section) {
+          section.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    }
+  };
+
   // Function to fetch user profile
   const fetchUserProfile = async (token) => {
     try {
-      const response = await fetch(`${BASE_URL}/api/user/profile`, {
+      const response = await fetch(`${process.env.BASE_URL || ''}/api/user/profile`, {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json',
@@ -34,14 +59,11 @@ const Header = () => {
         const profileData = {
           name: data.user.full_name || data.user.username || 'User',
           email: data.user.email,
-          picture: data.user.picture || '', // Add picture logic if needed
+          picture: data.user.picture || '',
           role: data.user.role || 'User'
         };
 
-        // Update localStorage
         localStorage.setItem('user_profile', JSON.stringify(profileData));
-        
-        // Update state
         setUserProfile(profileData);
         setIsAuthenticated(true);
         return true;
@@ -56,43 +78,10 @@ const Header = () => {
   };
 
   useEffect(() => {
-    // Listen for custom event that can be triggered after login
-   // In Header.jsx, modify the handleProfileUpdate function:
-const handleProfileUpdate = async (event) => {
-  const token = localStorage.getItem('token');
-  const adminToken = localStorage.getItem('adminToken');
-  
-  if (adminToken) {
-    setIsAuthenticated(true);
-    setIsAdmin(true);
-    
-    try {
-      const adminData = JSON.parse(localStorage.getItem('adminInfo'));
+    const handleProfileUpdate = async () => {
+      const token = localStorage.getItem('token');
+      const adminToken = localStorage.getItem('adminToken');
       
-      if (adminData) {
-        setUserProfile({
-          name: adminData.full_name || adminData.username || 'Admin',
-          email: adminData.email || '',
-          picture: '',
-          role: adminData.role || 'admin'
-        });
-      }
-    } catch (error) {
-      console.error('Error parsing admin profile:', error);
-    }
-  } else if (token) {
-    await fetchUserProfile(token);
-  }
-};
-
-    // Add event listener
-    window.addEventListener('user-logged-in', handleProfileUpdate);
-
-    // Initial authentication check
-    const token = localStorage.getItem('token');
-    const adminToken = localStorage.getItem('adminToken');
-    
-    const checkAuthentication = async () => {
       if (adminToken) {
         setIsAuthenticated(true);
         setIsAdmin(true);
@@ -112,7 +101,35 @@ const handleProfileUpdate = async (event) => {
           console.error('Error parsing admin profile:', error);
         }
       } else if (token) {
-        // Attempt to fetch user profile if not already in localStorage
+        await fetchUserProfile(token);
+      }
+    };
+
+    window.addEventListener('user-logged-in', handleProfileUpdate);
+
+    const checkAuthentication = async () => {
+      const token = localStorage.getItem('token');
+      const adminToken = localStorage.getItem('adminToken');
+      
+      if (adminToken) {
+        setIsAuthenticated(true);
+        setIsAdmin(true);
+        
+        try {
+          const adminData = JSON.parse(localStorage.getItem('adminInfo'));
+          
+          if (adminData) {
+            setUserProfile({
+              name: adminData.full_name || adminData.username || 'Admin',
+              email: adminData.email || '',
+              picture: '',
+              role: adminData.role || 'admin'
+            });
+          }
+        } catch (error) {
+          console.error('Error parsing admin profile:', error);
+        }
+      } else if (token) {
         const storedProfile = localStorage.getItem('user_profile');
         
         if (storedProfile) {
@@ -129,7 +146,6 @@ const handleProfileUpdate = async (event) => {
             console.error('Error parsing user profile:', error);
           }
         } else {
-          // If no profile in localStorage, fetch it
           await fetchUserProfile(token);
         }
       } else {
@@ -140,7 +156,6 @@ const handleProfileUpdate = async (event) => {
 
     checkAuthentication();
 
-    // Cleanup
     return () => {
       window.removeEventListener('user-logged-in', handleProfileUpdate);
     };
@@ -158,7 +173,6 @@ const handleProfileUpdate = async (event) => {
     setIsAuthenticated(false);
     setIsAdmin(false);
     
-    // Show logout toast
     toast.success('Logged Out', {
       description: 'You have been successfully logged out'
     });
@@ -166,7 +180,6 @@ const handleProfileUpdate = async (event) => {
     navigate('/');
   };
 
-  // Get initial for the avatar fallback
   const getInitials = () => {
     if (userProfile.name) {
       return userProfile.name.charAt(0).toUpperCase();
@@ -176,99 +189,123 @@ const handleProfileUpdate = async (event) => {
     return 'U';
   };
 
-  // Format role display text
   const formatRole = (role) => {
     if (!role) return '';
     return role.charAt(0).toUpperCase() + role.slice(1);
   };
 
+  // User profile dropdown component - reused in both mobile and desktop
+  const UserProfileDropdown = ({ isMobile = false }) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger className={`focus:outline-none flex items-center ${isMobile ? 'w-full justify-end' : ''}`}>
+        <div className={`mr-2 text-sm flex flex-col ${isMobile ? '' : 'items-end'}`}>
+          <span className="font-medium">{userProfile.name || 'User'}</span>
+          {userProfile.role && (
+            <span className="text-xs text-[#FFD700]">{formatRole(userProfile.role)}</span>
+          )}
+        </div>
+        <Avatar className="cursor-pointer border-2 border-[#20B2AA]">
+          {userProfile.picture ? (
+            <AvatarImage 
+              src={userProfile.picture} 
+              alt={userProfile.name || 'User'} 
+              referrerPolicy="no-referrer"
+            />
+          ) : null}
+          <AvatarFallback className="bg-[#20B2AA] text-[#0A1933]">{getInitials()}</AvatarFallback>
+        </Avatar>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="bg-[#0A1933] border border-[#20B2AA] text-white">
+        {isAdmin ? (
+          <DropdownMenuItem 
+            className="hover:bg-[#193366] cursor-pointer"
+            onClick={() => navigate('/admin/dashboard')}
+          >
+            Admin Dashboard
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem 
+            className="hover:bg-[#193366] cursor-pointer"
+            onClick={() => navigate('/user/dashboard')}
+          >
+            My Account
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem 
+          className="hover:bg-[#193366] text-red-400 cursor-pointer"
+          onClick={handleLogout}
+        >
+          Logout
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
-    <header className="w-full py-4 border-b border-gray-200 bg-[#0F172A] text-[#F8FAFC]">
+    <header className="fixed w-full py-3 z-50 bg-gradient-to-r from-[#0A1933] to-[#193366] text-white shadow-lg">
       <div className="container mx-auto flex justify-between items-center px-4">
         {/* Logo */}
-        <Link to="/" className="text-2xl font-bold flex items-center">
+        <div className="text-2xl font-bold flex items-center cursor-pointer" onClick={() => navigate('/')}>
           <span className="text-[#FFD700]">Elite</span>
-          <span className="ml-1">LLC</span>
-        </Link>
+          <span className="ml-1 text-[#20B2AA]">LLC</span>
+        </div>
 
-        {/* Navigation Links */}
-        <nav className="hidden md:flex space-x-6">
-          <Link to="/" className="text-[#F8FAFC] hover:text-[#FFD700] transition-colors">
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex space-x-8">
+          <button 
+            onClick={() => handleNavigation('hero')}
+            className="text-white hover:text-[#FFD700] transition-colors"
+          >
             Home
-          </Link>
-          <Link to="/pricing" className="text-[#F8FAFC] hover:text-[#FFD700] transition-colors">
-            Pricing
-          </Link>
-          <Link to="/about" className="text-[#F8FAFC] hover:text-[#FFD700] transition-colors">
-            About
-          </Link>
-          <Link to="/contact" className="text-[#F8FAFC] hover:text-[#FFD700] transition-colors">
+          </button>
+          <button 
+            onClick={() => handleNavigation('features')} 
+            className="text-white hover:text-[#FFD700] transition-colors"
+          >
+            Features
+          </button>
+          <button 
+            onClick={() => handleNavigation('states')} 
+            className="text-white hover:text-[#FFD700] transition-colors"
+          >
+            States
+          </button>
+          <button 
+            onClick={() => handleNavigation('contact')} 
+            className="text-white hover:text-[#FFD700] transition-colors"
+          >
             Contact
-          </Link>
+          </button>
         </nav>
 
-        {/* Auth Buttons or User Profile */}
-        <div className="flex items-center space-x-4">
+        {/* Auth Buttons or User Profile - Desktop */}
+        <div className="hidden md:flex items-center space-x-4">
           {isAuthenticated ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger className="focus:outline-none flex items-center">
-                <div className="mr-2 text-sm hidden md:flex flex-col items-end">
-                  <span className="font-medium">{userProfile.name || 'User'}</span>
-                  {userProfile.role && (
-                    <span className="text-xs text-[#FFD700]">{formatRole(userProfile.role)}</span>
-                  )}
-                </div>
-                <Avatar className="cursor-pointer border-2 border-[#FFD700]">
-                  {userProfile.picture ? (
-                    <AvatarImage 
-                      src={userProfile.picture} 
-                      alt={userProfile.name || 'User'} 
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : null}
-                  <AvatarFallback className="bg-[#FFD700] text-[#0F172A]">{getInitials()}</AvatarFallback>
-                </Avatar>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-[#0F172A] border border-[#FFD700] text-[#F8FAFC]">
-                {isAdmin ? (
-                  <DropdownMenuItem 
-                    className="hover:bg-[#1E293B] cursor-pointer"
-                    onClick={() => navigate('/admin/dashboard')}
-                  >
-                    Admin Dashboard
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem 
-                    className="hover:bg-[#1E293B] cursor-pointer"
-                    onClick={() => navigate('/user/dashboard')}
-                  >
-                    My Account
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem 
-                  className="hover:bg-[#1E293B] text-red-400 cursor-pointer"
-                  onClick={handleLogout}
-                >
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <UserProfileDropdown />
           ) : (
-            <>
-              <Button 
-                variant="outline" 
-                onClick={() => navigate('/login')}
-                className="border-[#FFD700] text-[#FFD700] hover:bg-[#FFD700] hover:text-[#0F172A]"
-              >
-                Sign In
-              </Button>
-              <Button 
-                onClick={() => navigate('/register')}
-                className="bg-[#FFD700] text-[#0F172A] hover:bg-[#E6C200]"
-              >
-                Start My Business
-              </Button>
-            </>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/login')}
+              className="border-[#20B2AA] text-[#20B2AA] hover:bg-[#20B2AA] hover:text-[#0A1933]"
+            >
+              Sign In
+            </Button>
+          )}
+        </div>
+        
+        {/* Mobile User Profile - always shown instead of hamburger menu */}
+        <div className="md:hidden flex items-center">
+          {isAuthenticated ? (
+            <UserProfileDropdown isMobile={true} />
+          ) : (
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/login')}
+              className="border-[#20B2AA] text-[#20B2AA] hover:bg-[#20B2AA] hover:text-[#0A1933] text-sm py-1 px-3"
+              size="sm"
+            >
+              Sign In
+            </Button>
           )}
         </div>
       </div>
