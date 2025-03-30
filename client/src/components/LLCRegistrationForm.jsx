@@ -618,7 +618,7 @@ const handleSubmit = async () => {
     });
     
     // Redirect to the Stripe checkout page with client secret
-    navigate(`/stripe-checkout/${response.data.paymentId}?clientSecret=${response.data.clientSecret}`);
+    navigate(`/user/stripe-checkout/${response.data.paymentId}?clientSecret=${response.data.clientSecret}`);
   } catch (error) {
     console.error('Error submitting form:', error);
     // Show error message to user
@@ -631,7 +631,7 @@ const handleSubmit = async () => {
   const handleSaveAndExit = async () => {
     try {
       await saveProgress();
-      navigate('/dashboard');
+      navigate('/user/dashboard');
     } catch (error) {
       console.error('Error saving and exiting:', error);
     }

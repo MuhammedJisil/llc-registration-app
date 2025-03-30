@@ -20,13 +20,13 @@ export default function AdminLogin() {
     e.preventDefault();
     setLoading(true);
     setError('');
-
+    
     try {
       const response = await axios.post(`${API_URL}/admin/login`, {
         username,
         password
       });
-
+      
       // Store the token and admin info in localStorage
       localStorage.setItem('adminToken', response.data.token);
       localStorage.setItem('adminInfo', JSON.stringify(response.data.admin));
@@ -34,8 +34,17 @@ export default function AdminLogin() {
       // Set authorization header for future requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
       
-      // Redirect to admin dashboard
-      navigate('/admin/dashboard');
+      // Ensure event is dispatched AFTER localStorage is updated
+      // In AdminLogin.jsx
+setTimeout(() => {
+  // Make sure we pass detail with the event
+  const event = new CustomEvent('user-logged-in');
+  window.dispatchEvent(event);
+  
+  // Redirect after a slight delay to ensure event processing
+  navigate('/');
+}, 100);
+      
     } catch (err) {
       console.error('Login error:', err);
       setError(err.response?.data?.error || 'Failed to login. Please try again.');
@@ -43,7 +52,6 @@ export default function AdminLogin() {
       setLoading(false);
     }
   };
-
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="w-full max-w-md px-4">

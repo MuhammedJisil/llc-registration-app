@@ -18,31 +18,91 @@ import AdminDashboard from './components/AdminDashboard';
 import UsersList from './components/UsersList';
 import UserRegistrations from './components/UserRegistrations';
 import RegistrationDetails from './components/RegistrationDetails';
+import { UserProtectedRoute, AdminProtectedRoute } from './components/ProtectedRoutes';
 
 function App() {
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">
-      <Header />
+        <Header />
         <Toaster />
         <Routes>
+          {/* Public Routes */}
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/auth-callback" element={<AuthCallback />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password/:token" element={<ResetPassword />} /> 
-
-          <Route path="/dashboard" element={<Dashboard/>} /> 
-          <Route path="/register-llc" element={<LLCRegistrationForm />} />
-          <Route path="/stripe-checkout/:id" element={<StripeCheckout />} />
-          <Route path="/payment-confirmation/:id" element={<PaymentConfirmation />} />
-          
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/users" element={<UsersList />} />
-          <Route path="/admin/users/:userId/registrations" element={<UserRegistrations />} />
-          <Route path="/admin/registrations/:id" element={<RegistrationDetails />} />
+          
+          {/* User Protected Routes */}
+          <Route 
+            path="/user/dashboard" 
+            element={
+              <UserProtectedRoute>
+                <Dashboard />
+              </UserProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/user/register-llc" 
+            element={
+              <UserProtectedRoute>
+                <LLCRegistrationForm />
+              </UserProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/user/stripe-checkout/:id" 
+            element={
+              <UserProtectedRoute>
+                <StripeCheckout />
+              </UserProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/user/payment-confirmation/:id" 
+            element={
+              <UserProtectedRoute>
+                <PaymentConfirmation />
+              </UserProtectedRoute>
+            } 
+          />
+          
+          {/* Admin Protected Routes */}
+          <Route 
+            path="/admin/dashboard" 
+            element={
+              <AdminProtectedRoute>
+                <AdminDashboard />
+              </AdminProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/users" 
+            element={
+              <AdminProtectedRoute>
+                <UsersList />
+              </AdminProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/users/:userId/registrations" 
+            element={
+              <AdminProtectedRoute>
+                <UserRegistrations />
+              </AdminProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/registrations/:id" 
+            element={
+              <AdminProtectedRoute>
+                <RegistrationDetails />
+              </AdminProtectedRoute>
+            } 
+          />
         </Routes>
         <Footer />
       </div>

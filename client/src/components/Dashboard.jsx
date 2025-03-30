@@ -304,7 +304,7 @@ const Dashboard = () => {
     const currentStep = getPropertyValue(registration, ['current_step', 'step'], 1);
     const nextStep = Math.min(parseInt(currentStep) + 1, 6);
     
-    navigate('/register-llc', { state: { currentStep: nextStep } });
+    navigate('/user/register-llc', { state: { currentStep: nextStep } });
   };
 
   const handleUpdateRegistration = (registration) => {
@@ -318,7 +318,7 @@ const Dashboard = () => {
     
     // Navigate to the form with the current step
     const currentStep = getPropertyValue(registration, ['current_step', 'step'], 1);
-    navigate('/register-llc', { state: { currentStep: parseInt(currentStep) } });
+    navigate('/user/register-llc', { state: { currentStep: parseInt(currentStep) } });
   };
 
   const downloadSummaryPDF = async (registrationId, companyName) => {
@@ -383,7 +383,7 @@ const Dashboard = () => {
     });
     
     // Redirect to the Stripe checkout page with client secret
-    navigate(`/stripe-checkout/${response.data.paymentId}?clientSecret=${response.data.clientSecret}`);
+    navigate(`/user/stripe-checkout/${response.data.paymentId}?clientSecret=${response.data.clientSecret}`);
   } catch (error) {
     console.error('Error initializing payment:', error);
     // You could add error handling here, such as displaying an error message to the user
@@ -458,7 +458,7 @@ const Dashboard = () => {
         <h1 className="text-3xl font-bold">Your Dashboard</h1>
         <div className="flex items-center space-x-4">
           <NotificationBell />
-          <Button onClick={() => navigate('/register-llc', { state: { newRegistration: true }})}>
+          <Button onClick={() => navigate('/user/register-llc', { state: { newRegistration: true }})}>
             Create New LLC
           </Button>
         </div>
