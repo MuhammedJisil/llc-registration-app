@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { BASE_URL } from '@/lib/config';
 
 const Header = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userProfile, setUserProfile] = useState({
@@ -17,35 +17,10 @@ const Header = () => {
     role: ''
   });
 
-  // Function to scroll to section (used when on homepage)
-  const scrollToSection = (sectionId) => {
-    const section = document.getElementById(sectionId);
-    if (section) {
-      section.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  // Function to handle navigation menu clicks
-  // If on homepage ('/'), scroll to section, otherwise navigate to homepage
-  const handleNavigation = (sectionId) => {
-    if (location.pathname === '/') {
-      scrollToSection(sectionId);
-    } else {
-      navigate('/');
-      // Setting a small timeout to allow the page to load before scrolling
-      setTimeout(() => {
-        const section = document.getElementById(sectionId);
-        if (section) {
-          section.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 100);
-    }
-  };
-
   // Function to fetch user profile
   const fetchUserProfile = async (token) => {
     try {
-      const response = await fetch(`${process.env.BASE_URL || ''}/api/user/profile`, {
+      const response = await fetch(`${BASE_URL}/api/user/profile`, {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json',
@@ -59,11 +34,14 @@ const Header = () => {
         const profileData = {
           name: data.user.full_name || data.user.username || 'User',
           email: data.user.email,
-          picture: data.user.picture || '',
+          picture: data.user.picture || '', // Add picture logic if needed
           role: data.user.role || 'User'
         };
 
+        // Update localStorage
         localStorage.setItem('user_profile', JSON.stringify(profileData));
+        
+        // Update state
         setUserProfile(profileData);
         setIsAuthenticated(true);
         return true;
@@ -78,39 +56,22 @@ const Header = () => {
   };
 
   useEffect(() => {
-    const handleProfileUpdate = async () => {
+    // Listen for custom event that can be triggered after login
+    const handleProfileUpdate = async (event) => {
       const token = localStorage.getItem('token');
-      const adminToken = localStorage.getItem('adminToken');
-      
-      if (adminToken) {
-        setIsAuthenticated(true);
-        setIsAdmin(true);
-        
-        try {
-          const adminData = JSON.parse(localStorage.getItem('adminInfo'));
-          
-          if (adminData) {
-            setUserProfile({
-              name: adminData.full_name || adminData.username || 'Admin',
-              email: adminData.email || '',
-              picture: '',
-              role: adminData.role || 'admin'
-            });
-          }
-        } catch (error) {
-          console.error('Error parsing admin profile:', error);
-        }
-      } else if (token) {
+      if (token) {
         await fetchUserProfile(token);
       }
     };
 
+    // Add event listener
     window.addEventListener('user-logged-in', handleProfileUpdate);
 
+    // Initial authentication check
+    const token = localStorage.getItem('token');
+    const adminToken = localStorage.getItem('adminToken');
+    
     const checkAuthentication = async () => {
-      const token = localStorage.getItem('token');
-      const adminToken = localStorage.getItem('adminToken');
-      
       if (adminToken) {
         setIsAuthenticated(true);
         setIsAdmin(true);
@@ -130,6 +91,7 @@ const Header = () => {
           console.error('Error parsing admin profile:', error);
         }
       } else if (token) {
+        // Attempt to fetch user profile if not already in localStorage
         const storedProfile = localStorage.getItem('user_profile');
         
         if (storedProfile) {
@@ -146,6 +108,7 @@ const Header = () => {
             console.error('Error parsing user profile:', error);
           }
         } else {
+          // If no profile in localStorage, fetch it
           await fetchUserProfile(token);
         }
       } else {
@@ -156,6 +119,7 @@ const Header = () => {
 
     checkAuthentication();
 
+    // Cleanup
     return () => {
       window.removeEventListener('user-logged-in', handleProfileUpdate);
     };
@@ -173,6 +137,7 @@ const Header = () => {
     setIsAuthenticated(false);
     setIsAdmin(false);
     
+    // Show logout toast
     toast.success('Logged Out', {
       description: 'You have been successfully logged out'
     });
@@ -180,6 +145,7 @@ const Header = () => {
     navigate('/');
   };
 
+  // Get initial for the avatar fallback
   const getInitials = () => {
     if (userProfile.name) {
       return userProfile.name.charAt(0).toUpperCase();
@@ -189,6 +155,7 @@ const Header = () => {
     return 'U';
   };
 
+  // Format role display text
   const formatRole = (role) => {
     if (!role) return '';
     return role.charAt(0).toUpperCase() + role.slice(1);
