@@ -101,7 +101,7 @@ const CheckoutForm = () => {
       const result = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: `${window.location.origin}/payment-confirmation/${id}`,
+          return_url: `${window.location.origin}/user/payment-confirmation/${id}`,
         },
       });
       
@@ -117,7 +117,7 @@ const CheckoutForm = () => {
   };
   
   const handleCancel = () => {
-    navigate('/dashboard');
+    navigate('/user/dashboard');
   };
   
   return (
@@ -200,7 +200,7 @@ const StripeCheckout = () => {
           <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-4 text-amber-800">Invalid Payment Session</h1>
           <p className="mb-6 text-amber-700">Unable to load payment information. Please try again or contact support.</p>
-          <Button onClick={() => window.location.href = '/dashboard'} className="w-full">
+          <Button onClick={() => window.location.href = '/user/dashboard'} className="w-full">
             Return to Dashboard
           </Button>
         </div>

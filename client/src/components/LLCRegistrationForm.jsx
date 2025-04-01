@@ -32,10 +32,20 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, MinusCircle, ArrowRight, ArrowLeft, CheckCircle, Upload, Download } from "lucide-react";
+import { PlusCircle, MinusCircle, ArrowRight, ArrowLeft, CheckCircle, Upload, Info, ExternalLink, Flag, Users, FileCheck, Files, Phone, Download, FileText, CreditCard, X, Paperclip, MapPin, Home, Building, Mail, Globe2, Check, AlertCircle, Search, Building2, UserCircle, User, Percent } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { BASE_URL } from '@/lib/config';
 import { toast } from 'sonner';
+
+const steps = [
+  { number: 1, label: 'State Selection' },
+  { number: 2, label: 'Company Info' },
+  { number: 3, label: 'Ownership' },
+  { number: 4, label: 'Address' },
+  { number: 5, label: 'Documents' },
+  { number: 6, label: 'Review' }
+];
+
 
 const AGENCY_NAME = "Mountain West Registered Agents";
 const AGENCY_DETAILS = {
@@ -705,90 +715,108 @@ const handleSubmit = async () => {
     switch (currentStep) {
       case 1:
         return (
-          <>
-            <CardHeader>
-              <CardTitle>Step 1: Select State of Formation</CardTitle>
-              <CardDescription>
+          <Card className="w-full shadow-md border border-[#20B2AA]/20 bg-gradient-to-r from-[#0A1933]/5 to-[#193366]/5">
+            <CardHeader className="bg-gradient-to-r from-[#0A1933] to-[#193366] text-white rounded-t-lg">
+              <CardTitle className="flex items-center text-[#FFD700]">
+                <span className="mr-2 bg-white rounded-full p-1">
+                  <Check className="h-4 w-4 text-[#20B2AA]" />
+                </span>
+                Step 1: Select State of Formation
+              </CardTitle>
+              <CardDescription className="text-gray-200">
                 Choose the state where you want to register your LLC. The filing fee varies by state.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <Form {...form}>
-                <div className="mb-4">
-                  <Alert className="mb-4">
+                <div className="space-y-6">
+                  <Alert className="border-[#20B2AA] bg-[#20B2AA]/10">
                     <div className="flex items-center mb-2">
-                      <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
-                      <AlertTitle>Registered Agent Information</AlertTitle>
+                      <CheckCircle className="h-4 w-4 mr-2 text-[#20B2AA]" />
+                      <AlertTitle className="font-medium text-[#0A1933]">Registered Agent Information</AlertTitle>
                     </div>
-                    <AlertDescription>
-                      You are registering under: <strong>{AGENCY_NAME}</strong><br />
-                      {AGENCY_DETAILS.address}, {AGENCY_DETAILS.city}, {AGENCY_DETAILS.state} {AGENCY_DETAILS.zipCode}<br />
-                      Phone: {AGENCY_DETAILS.phone} | Email: {AGENCY_DETAILS.email}
+                    <AlertDescription className="text-[#0A1933]">
+                      <div className="pl-6">
+                        You are registering under: <strong>{AGENCY_NAME}</strong><br />
+                        {AGENCY_DETAILS.address}, {AGENCY_DETAILS.city}, {AGENCY_DETAILS.state} {AGENCY_DETAILS.zipCode}<br />
+                        Phone: {AGENCY_DETAILS.phone} | Email: {AGENCY_DETAILS.email}
+                      </div>
                     </AlertDescription>
                   </Alert>
-                  
+                            
                   <FormField
                     control={form.control}
                     name="state"
                     render={({ field }) => (
-                      <FormItem>
-                         <RequiredLabel>State of Formation</RequiredLabel>
+                      <FormItem className="mb-6">
+                        <RequiredLabel>State of Formation</RequiredLabel>
                         <FormControl>
-                        <Select 
-  value={field.value || ''}  // Include a default empty string
-  onValueChange={(value) => {
-    field.onChange(value);
-    handleStateChange(value);
-  }}
->
-  <SelectTrigger>
-    <SelectValue placeholder="Select a state" />
-  </SelectTrigger>
-  <SelectContent>
-  {Array.isArray(stateOptions) && stateOptions.length > 0 ? (
-    stateOptions.map((state) => (
-      <SelectItem key={state.name} value={state.name}>
-        {state.name} - ${state.fee}
-      </SelectItem>
-    ))
-  ) : (
-    <div className="px-2 py-4 text-sm">Loading states...</div>
-  )}
-</SelectContent>
-</Select>
+                          <Select
+                            value={field.value || ''}
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              handleStateChange(value);
+                            }}
+                          >
+                            <SelectTrigger className="border-[#20B2AA] focus:ring-[#20B2AA] focus:ring-opacity-50">
+                              <SelectValue placeholder="Select a state" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white border-[#20B2AA]">
+                              {Array.isArray(stateOptions) && stateOptions.length > 0 ? (
+                                stateOptions.map((state) => (
+                                  <SelectItem key={state.name} value={state.name} className="hover:bg-[#20B2AA]/10">
+                                    {state.name} - ${state.fee}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="px-4 py-3 text-sm flex items-center justify-center text-gray-500">
+                                  <Info className="mr-2 h-4 w-4 animate-pulse" />
+                                  Loading states...
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
                         </FormControl>
-                        <FormDescription>
+                        <FormDescription className="text-gray-600">
                           This is the state where your LLC will be legally formed.
                         </FormDescription>
                       </FormItem>
                     )}
                   />
-
+                  
                   {formValues.state && (
-                    <div className="mt-4">
-                      <Badge variant="outline" className="text-lg px-4 py-2">
-                        Filing Fee: ${formValues.stateAmount}
+                    <div className="flex justify-center mt-4 transition-all duration-300 ease-in-out">
+                      <Badge 
+                        variant="outline" 
+                        className="text-lg px-6 py-3 border-2 border-[#20B2AA] bg-[#20B2AA]/10 text-[#0A1933] font-medium"
+                      >
+                        Filing Fee: <span className="text-[#193366] font-bold">${formValues.stateAmount}</span>
                       </Badge>
                     </div>
                   )}
                 </div>
               </Form>
             </CardContent>
-          </>
+          </Card>
         );
       
       case 2:
         return (
-          <>
-            <CardHeader>
-              <CardTitle>Step 2: Let's Name Your Business</CardTitle>
-              <CardDescription>
+          <Card className="w-full shadow-md border border-[#20B2AA]/20 bg-gradient-to-r from-[#0A1933]/5 to-[#193366]/5">
+            <CardHeader className="bg-gradient-to-r from-[#0A1933] to-[#193366] text-white rounded-t-lg">
+              <CardTitle className="flex items-center text-[#FFD700]">
+                <span className="mr-2 bg-white rounded-full p-1">
+                  <CheckCircle className="h-4 w-4 text-[#20B2AA]" />
+                </span>
+                Step 2: Let's Name Your Business
+              </CardTitle>
+              <CardDescription className="text-gray-200">
                 Choose a unique name for your LLC. Make sure it's available in your selected state.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <Form {...form}>
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <FormField
                     control={form.control}
                     name="companyName"
@@ -796,18 +824,22 @@ const handleSubmit = async () => {
                       <FormItem>
                         <RequiredLabel>Company Name</RequiredLabel>
                         <FormControl>
-                          <Input 
-                            {...field}
-                            placeholder="Enter your desired company name"
-                          />
+                          <div className="relative">
+                            <Input 
+                              {...field}
+                              placeholder="Enter your desired company name"
+                              className="pl-10 border-[#20B2AA] focus:ring-[#20B2AA] focus:ring-opacity-50"
+                            />
+                            <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#20B2AA]" />
+                          </div>
                         </FormControl>
-                        <FormDescription>
+                        <FormDescription className="text-gray-600">
                           Your company name should end with "LLC", "L.L.C.", or "Limited Liability Company"
                         </FormDescription>
                       </FormItem>
                     )}
                   />
-
+      
                   <FormField
                     control={form.control}
                     name="companyType"
@@ -815,23 +847,23 @@ const handleSubmit = async () => {
                       <FormItem>
                         <RequiredLabel>Company Type</RequiredLabel>
                         <FormControl>
-                          <Select 
-                            disabled
-                            value={field.value}
-                            onValueChange={field.onChange}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select company type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="LLC">LLC</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="relative">
+                            <Badge 
+                              variant="outline" 
+                              className="w-full h-10 px-4 flex items-center text-sm border-[#20B2AA] bg-[#20B2AA]/10 text-[#0A1933] font-medium justify-start rounded-md"
+                            >
+                              <Building2 className="mr-2 h-4 w-4 text-[#20B2AA]" />
+                              Limited Liability Company (LLC)
+                            </Badge>
+                          </div>
                         </FormControl>
+                        <FormDescription className="text-gray-600">
+                          Your business will be registered as an LLC
+                        </FormDescription>
                       </FormItem>
                     )}
                   />
-
+      
                   <FormField
                     control={form.control}
                     name="category"
@@ -843,88 +875,105 @@ const handleSubmit = async () => {
                             value={field.value}
                             onValueChange={field.onChange}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="border-[#20B2AA] focus:ring-[#20B2AA] focus:ring-opacity-50">
                               <SelectValue placeholder="Select category" />
                             </SelectTrigger>
-                            <SelectContent>
-                              {categoryOptions.map((category) => (
-                                <SelectItem key={category.id} value={category.name}>
+                            <SelectContent className="bg-white border-[#20B2AA]">
+                              {categoryOptions && categoryOptions.map((category) => (
+                                <SelectItem key={category.id} value={category.name} className="hover:bg-[#20B2AA]/10">
                                   {category.name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </FormControl>
+                        <FormDescription className="text-gray-600">
+                          Select the category that best describes your business
+                        </FormDescription>
                       </FormItem>
                     )}
                   />
-
-                  <Alert className="mt-6">
-                    <AlertTitle>Important: Check Name Availability</AlertTitle>
-                    <AlertDescription className="space-y-2">
+      
+                  <Alert className="border-[#FFD700] bg-[#FFD700]/10 mt-6">
+                    <AlertCircle className="h-4 w-4 text-[#FFD700]" />
+                    <AlertTitle className="font-medium text-[#0A1933] ml-2">Important: Check Name Availability</AlertTitle>
+                    <AlertDescription className="space-y-3 pl-6 mt-2 text-[#0A1933]">
                       <p>Before proceeding, please check if your desired company name is available:</p>
                       {formValues.state === 'Wyoming' ? (
-                        <p>
-                          <a 
-                            href="https://wyobiz.wyo.gov/Business/FilingSearch.aspx" 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
-                          >
-                            Search Wyoming Business Filings
-                          </a>
-                        </p>
+                        <a 
+                          href="https://wyobiz.wyo.gov/Business/FilingSearch.aspx" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center px-4 py-2 rounded-md bg-[#193366] text-white hover:bg-[#0A1933] transition-colors"
+                        >
+                          <Search className="mr-2 h-4 w-4" />
+                          Search Wyoming Business Filings
+                        </a>
                       ) : formValues.state === 'Montana' ? (
-                        <p>
-                          <a 
-                            href="https://biz.sosmt.gov/search/business" 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
-                          >
-                            Search Montana Business Filings
-                          </a>
-                        </p>
+                        <a 
+                          href="https://biz.sosmt.gov/search/business" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center px-4 py-2 rounded-md bg-[#193366] text-white hover:bg-[#0A1933] transition-colors"
+                        >
+                          <Search className="mr-2 h-4 w-4" />
+                          Search Montana Business Filings
+                        </a>
                       ) : (
-                        <p>Please select a state first.</p>
+                        <div className="text-amber-600 font-medium italic flex items-center">
+                          <AlertCircle className="mr-2 h-4 w-4" />
+                          Please select a state first to check name availability.
+                        </div>
                       )}
                     </AlertDescription>
                   </Alert>
                 </div>
               </Form>
             </CardContent>
-          </>
+          </Card>
         );
           
         case 3:
           return (
-            <>
-              <CardHeader>
-                <CardTitle>Step 3: Owners of {formValues.companyName || "Your LLC"}</CardTitle>
-                <CardDescription>
+            <Card className="w-full shadow-md border border-[#20B2AA]/20 bg-gradient-to-r from-[#0A1933]/5 to-[#193366]/5">
+              <CardHeader className="bg-gradient-to-r from-[#0A1933] to-[#193366] text-white rounded-t-lg">
+                <CardTitle className="flex items-center text-[#FFD700]">
+                  <span className="mr-2 bg-white rounded-full p-1">
+                    <CheckCircle className="h-4 w-4 text-[#20B2AA]" />
+                  </span>
+                  Step 3: Owners of {formValues.companyName || "Your LLC"}
+                </CardTitle>
+                <CardDescription className="text-gray-200">
                   Provide information about all owners (members) of your LLC and their ownership percentages.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 <Form {...form}>
                   <div className="space-y-6">
-                    {formValues.owners.map((owner, index) => (
-                      <div key={index} className="p-4 border rounded-md space-y-4">
+                    {formValues.owners && formValues.owners.map((owner, index) => (
+                      <div 
+                        key={index} 
+                        className="p-4 border border-[#20B2AA]/30 rounded-md space-y-4 bg-white shadow-sm hover:shadow-md transition-shadow duration-200"
+                      >
                         <div className="flex justify-between items-center">
-                          <h3 className="font-medium">Owner {index + 1}</h3>
+                          <h3 className="font-medium text-[#0A1933] flex items-center">
+                            <UserCircle className="h-5 w-5 mr-2 text-[#20B2AA]" />
+                            Owner {index + 1}
+                          </h3>
                           {formValues.owners.length > 1 && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => removeOwner(index)}
+                              className="text-red-500 border-red-500 hover:bg-red-50 hover:text-red-600"
                             >
                               <MinusCircle className="h-4 w-4 mr-2" />
                               Remove
                             </Button>
                           )}
                         </div>
-                        <Separator />
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Separator className="bg-[#20B2AA]/20" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <FormField
                             control={form.control}
                             name={`owners.${index}.fullName`}
@@ -932,10 +981,14 @@ const handleSubmit = async () => {
                               <FormItem>
                                 <RequiredLabel>Full Name</RequiredLabel>
                                 <FormControl>
-                                  <Input 
-                                    {...field}
-                                    placeholder="Enter full legal name"
-                                  />
+                                  <div className="relative">
+                                    <Input
+                                      {...field}
+                                      placeholder="Enter full legal name"
+                                      className="pl-10 border-[#20B2AA] focus:ring-[#20B2AA] focus:ring-opacity-50"
+                                    />
+                                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#20B2AA]" />
+                                  </div>
                                 </FormControl>
                               </FormItem>
                             )}
@@ -946,17 +999,19 @@ const handleSubmit = async () => {
                             render={({ field }) => (
                               <FormItem>
                                 <RequiredLabel>Ownership Percentage</RequiredLabel>
-                                <div className="flex items-center">
+                                <div className="relative">
                                   <FormControl>
-                                    <Input 
+                                    <Input
                                       {...field}
                                       type="number"
                                       placeholder="Enter percentage"
                                       min="0"
                                       max="100"
+                                      className="pl-10 pr-8 border-[#20B2AA] focus:ring-[#20B2AA] focus:ring-opacity-50"
                                     />
                                   </FormControl>
-                                  <span className="ml-2">%</span>
+                                  <Percent className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#20B2AA]" />
+                                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#0A1933] font-medium">%</span>
                                 </div>
                               </FormItem>
                             )}
@@ -964,504 +1019,803 @@ const handleSubmit = async () => {
                         </div>
                       </div>
                     ))}
-    
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+                    
+                    <Button
+                      type="button"
+                      variant="outline"
                       onClick={addOwner}
-                      className="w-full"
+                      className="w-full border-dashed border-2 border-[#20B2AA] text-[#20B2AA] hover:bg-[#20B2AA]/10 hover:text-[#0A1933] h-12 font-medium"
                     >
-                      <PlusCircle className="h-4 w-4 mr-2" />
+                      <PlusCircle className="h-5 w-5 mr-2" />
                       Add Another Owner
                     </Button>
                   </div>
                 </Form>
               </CardContent>
-            </>
+            </Card>
           );
         
         case 4:
           return (
-            <>
-              <CardHeader>
-                <CardTitle>Step 4: Residential Address</CardTitle>
-                <CardDescription>
+            <Card className="w-full shadow-md border border-[#20B2AA]/20 bg-gradient-to-r from-[#0A1933]/5 to-[#193366]/5">
+              <CardHeader className="bg-gradient-to-r from-[#0A1933] to-[#193366] text-white rounded-t-lg">
+                <CardTitle className="flex items-center text-[#FFD700]">
+                  <span className="mr-2 bg-white rounded-full p-1">
+                    <CheckCircle className="h-4 w-4 text-[#20B2AA]" />
+                  </span>
+                  Step 4: Residential Address
+                </CardTitle>
+                <CardDescription className="text-gray-200">
                   Provide the principal residential address for your LLC. This cannot be a P.O. Box.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
+                <Alert className="mb-6 border-[#FFD700] bg-[#FFD700]/10">
+                  <AlertCircle className="h-4 w-4 text-[#FFD700]" />
+                  <AlertTitle className="font-medium text-[#0A1933] ml-2">Important</AlertTitle>
+                  <AlertDescription className="text-[#0A1933] pl-6">
+                    This must be a physical address. P.O. Boxes are not acceptable for LLC registration.
+                  </AlertDescription>
+                </Alert>
+                
                 <Form {...form}>
-                  <div className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="address.street"
-                      render={({ field }) => (
-                        <FormItem>
-                          <RequiredLabel>Street Address</RequiredLabel>
-                          <FormControl>
-                            <Input 
-                              {...field}
-                              placeholder="Enter street address"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="address.city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <RequiredLabel>City</RequiredLabel>
-                          <FormControl>
-                            <Input 
-                              {...field}
-                              placeholder="Enter city"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="address.state"
-                        render={({ field }) => (
-                          <FormItem>
-                            <RequiredLabel>State/Province/Region</RequiredLabel>
-                            <FormControl>
-                              <Input 
-                                {...field}
-                                placeholder="Enter state/province/region"
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="address.postalCode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <RequiredLabel>Postal Code</RequiredLabel>
-                            <FormControl>
-                              <Input 
-                                {...field}
-                                placeholder="Enter postal code"
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
+                  <div className="space-y-6">
+                    <div className="bg-white p-5 rounded-md border border-[#20B2AA]/30 shadow-sm">
+                      <div className="flex items-center mb-4">
+                      <MapPin className="h-5 w-5 mr-2 text-[#20B2AA]" />
+                        <h3 className="font-medium text-[#0A1933]">Address Details</h3>
+                      </div>
+                      
+                      <div className="space-y-5">
+                        <FormField
+                          control={form.control}
+                          name="address.street"
+                          render={({ field }) => (
+                            <FormItem>
+                              <RequiredLabel>Street Address</RequiredLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Input 
+                                    {...field}
+                                    placeholder="Enter street address"
+                                    className="pl-10 border-[#20B2AA] focus:ring-[#20B2AA] focus:ring-opacity-50"
+                                  />
+                                  <Home className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#20B2AA]" />
+                                </div>
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="address.city"
+                          render={({ field }) => (
+                            <FormItem>
+                              <RequiredLabel>City</RequiredLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Input 
+                                    {...field}
+                                    placeholder="Enter city"
+                                    className="pl-10 border-[#20B2AA] focus:ring-[#20B2AA] focus:ring-opacity-50"
+                                  />
+                                  <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#20B2AA]" />
+                                </div>
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <FormField
+                            control={form.control}
+                            name="address.state"
+                            render={({ field }) => (
+                              <FormItem>
+                                <RequiredLabel>State/Province/Region</RequiredLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Input 
+                                      {...field}
+                                      placeholder="Enter state/province/region"
+                                      className="pl-10 border-[#20B2AA] focus:ring-[#20B2AA] focus:ring-opacity-50"
+                                    />
+                                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#20B2AA]" />
+                                  </div>
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="address.postalCode"
+                            render={({ field }) => (
+                              <FormItem>
+                                <RequiredLabel>Postal Code</RequiredLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Input 
+                                      {...field}
+                                      placeholder="Enter postal code"
+                                      className="pl-10 border-[#20B2AA] focus:ring-[#20B2AA] focus:ring-opacity-50"
+                                    />
+                                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#20B2AA]" />
+                                  </div>
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        
+                        <FormField
+                          control={form.control}
+                          name="address.country"
+                          render={({ field }) => (
+                            <FormItem>
+                              <RequiredLabel>Country</RequiredLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Select 
+                                    value={field.value}
+                                    onValueChange={field.onChange}
+                                  >
+                                    <SelectTrigger className="pl-10 border-[#20B2AA] focus:ring-[#20B2AA] focus:ring-opacity-50">
+                                      <SelectValue placeholder="Select country" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-80 overflow-y-auto border-[#20B2AA]">
+                                      {countries && countries.map((country) => (
+                                        <SelectItem key={country} value={country} className="hover:bg-[#20B2AA]/10">
+                                          {country}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Globe2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#20B2AA] z-10" />
+                                </div>
+                              </FormControl>
+                              <FormDescription className="text-gray-600">
+                                Select the country where your LLC is primarily located
+                              </FormDescription>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     </div>
-                    
-                    <FormField
-                      control={form.control}
-                      name="address.country"
-                      render={({ field }) => (
-                        <FormItem>
-                          <RequiredLabel>Country</RequiredLabel>
-                          <FormControl>
-                            <Select 
-                              value={field.value}
-                              onValueChange={field.onChange}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select country" />
-                              </SelectTrigger>
-                              <SelectContent>
-                              {countries.map((country) => (
-                                <SelectItem key={country} value={country}>{country}</SelectItem>
-                              ))}
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
                   </div>
                 </Form>
               </CardContent>
-            </>
+            </Card>
           );
-    
-          case 5:
-            return (
-              <>
-                <CardHeader>
-                  <CardTitle>Step 5: Upload Identification Documents</CardTitle>
-                  <CardDescription>
-                    Please upload valid identification documents for verification purposes.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Form {...form}>
-                    <div className="space-y-6">
-                      <Alert>
-                        <AlertTitle>Important</AlertTitle>
-                        <AlertDescription>
-                          For security and compliance, we require a valid passport. Your information is encrypted and protected.
-                        </AlertDescription>
-                      </Alert>
-          
-                      {/* Replace the dropdown with a static display */}
-                      <FormItem>
-                        <FormLabel>ID Type</FormLabel>
-                        <FormControl>
-                          <Input value="Passport" disabled />
-                        </FormControl>
-                        <FormDescription>
-                          We only accept passport as a valid form of identification.
-                        </FormDescription>
-                      </FormItem>
-          
-                      {/* Hidden field to store the value */}
-                      <input 
-                        type="hidden" 
-                        {...form.register("identificationDocuments.idType")} 
-                        value="passport" 
-                      />
-          
-                      {/* Separate file upload component */}
-                      <FormItem>
-  <RequiredLabel>Upload Passport</RequiredLabel>
-  <FormControl>
-    <div className="flex flex-col space-y-3">
-      <Button 
-        type="button" 
-        variant="outline" 
-        className="flex items-center justify-center h-24 w-full"
-        onClick={(e) => {
-          e.preventDefault();
-          document.getElementById('idFileUpload').click();
-        }}
-      >
-        <Upload className="h-6 w-6 mr-2" />
-        {formValues.identificationDocuments.idFileName ? 'Change file' : 'Click to upload'}
-      </Button>
-      <Input 
-        id="idFileUpload"
-        type="file" 
-        className="hidden" 
-        accept=".jpg,.jpeg,.png,.pdf"
-        onChange={handleFileUpload}
-      />
-      
-      {/* Document preview section */}
-      {formValues.identificationDocuments.idFileName && (
-        <div className="p-3 border rounded-md">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center">
-              <div className="w-10 h-10 flex items-center justify-center bg-blue-100 rounded-md mr-3">
-                {previewUrl && formValues.identificationDocuments.idFileName.match(/\.(jpg|jpeg|png)$/i) ? (
-                  <img 
-                    src={previewUrl} 
-                    alt="ID Preview" 
-                    className="max-h-10 max-w-10 object-cover rounded"
-                  />
-                ) : (
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-medium truncate max-w-xs">{formValues.identificationDocuments.idFileName}</p>
-                <p className="text-xs text-gray-500">
-                  {/* Show file size if available */}
-                  {formValues.identificationDocuments.idFile && 
-                    `${(formValues.identificationDocuments.idFile.size / (1024 * 1024)).toFixed(2)} MB`}
-                </p>
-              </div>
+            case 5:
+              return (
+                <Card className="w-full shadow-md border border-[#20B2AA]/20 bg-gradient-to-r from-[#0A1933]/5 to-[#193366]/5">
+                  <CardHeader className="bg-gradient-to-r from-[#0A1933] to-[#193366] text-white rounded-t-lg">
+                    <CardTitle className="flex items-center text-[#FFD700]">
+                      <span className="mr-2 bg-white rounded-full p-1">
+                        <CheckCircle className="h-4 w-4 text-[#20B2AA]" />
+                      </span>
+                      Step 5: Upload Identification Documents
+                    </CardTitle>
+                    <CardDescription className="text-gray-200">
+                      Please upload valid identification documents for verification purposes.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <Alert className="mb-6 border-[#FFD700] bg-[#FFD700]/10">
+                      <AlertCircle className="h-4 w-4 text-[#FFD700]" />
+                      <AlertTitle className="font-medium text-[#0A1933] ml-2">Important</AlertTitle>
+                      <AlertDescription className="text-[#0A1933] pl-6">
+                        For security and compliance, we require a valid passport. Your information is encrypted and protected.
+                      </AlertDescription>
+                    </Alert>
+                    
+                    <Form {...form}>
+                      <div className="space-y-6">
+                        <div className="bg-white p-5 rounded-md border border-[#20B2AA]/30 shadow-sm">
+                          <div className="flex items-center mb-4">
+                            <FileText className="h-5 w-5 mr-2 text-[#20B2AA]" />
+                            <h3 className="font-medium text-[#0A1933]">Identification Details</h3>
+                          </div>
+                          
+                          <div className="space-y-5">
+                            {/* Fixed ID Type Display */}
+                            <FormItem>
+                              <FormLabel className="text-[#0A1933] font-medium flex items-center">
+                                ID Type <span className="text-red-500 ml-1">*</span>
+                              </FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Input 
+                                    value="Passport" 
+                                    disabled 
+                                    className="pl-10 border-[#20B2AA] bg-gray-50 focus:ring-[#20B2AA] focus:ring-opacity-50"
+                                  />
+                                  <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#20B2AA]" />
+                                </div>
+                              </FormControl>
+                              <FormDescription className="text-gray-600">
+                                We only accept passport as a valid form of identification.
+                              </FormDescription>
+                            </FormItem>
+            
+                            {/* Hidden field to store the value */}
+                            <input 
+                              type="hidden" 
+                              {...form.register("identificationDocuments.idType")} 
+                              value="passport" 
+                            />
+            
+                            {/* Passport Upload */}
+                            <FormItem>
+                              <FormLabel className="text-[#0A1933] font-medium flex items-center">
+                                Upload Passport <span className="text-red-500 ml-1">*</span>
+                              </FormLabel>
+                              <FormControl>
+                                <div className="flex flex-col space-y-3">
+                                  <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    className="flex items-center justify-center h-24 w-full border-dashed border-[#20B2AA] hover:bg-[#20B2AA]/5"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      document.getElementById('idFileUpload').click();
+                                    }}
+                                  >
+                                    <Upload className="h-6 w-6 mr-2 text-[#20B2AA]" />
+                                    {formValues.identificationDocuments.idFileName ? 'Change file' : 'Click to upload'}
+                                  </Button>
+                                  <Input 
+                                    id="idFileUpload"
+                                    type="file" 
+                                    className="hidden" 
+                                    accept=".jpg,.jpeg,.png,.pdf"
+                                    onChange={handleFileUpload}
+                                  />
+                                  
+                                  {/* Document preview section */}
+                                  {formValues.identificationDocuments.idFileName && (
+                                    <div className="p-3 border rounded-md border-[#20B2AA]/30 bg-white">
+                                      <div className="flex justify-between items-center">
+                                        <div className="flex items-center">
+                                          <div className="w-10 h-10 flex items-center justify-center bg-[#20B2AA]/10 rounded-md mr-3">
+                                            {previewUrl && formValues.identificationDocuments.idFileName.match(/\.(jpg|jpeg|png)$/i) ? (
+                                              <img 
+                                                src={previewUrl} 
+                                                alt="ID Preview" 
+                                                className="max-h-10 max-w-10 object-cover rounded"
+                                              />
+                                            ) : (
+                                              <FileText className="w-6 h-6 text-[#20B2AA]" />
+                                            )}
+                                          </div>
+                                          <div>
+                                            <p className="text-sm font-medium truncate max-w-xs text-[#0A1933]">{formValues.identificationDocuments.idFileName}</p>
+                                            <p className="text-xs text-gray-500">
+                                              {/* Show file size if available */}
+                                              {formValues.identificationDocuments.idFile && 
+                                                `${(formValues.identificationDocuments.idFile.size / (1024 * 1024)).toFixed(2)} MB`}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm"
+                                          className="text-[#0A1933] hover:bg-[#20B2AA]/10 hover:text-[#20B2AA]"
+                                          onClick={() => {
+                                            form.setValue('identificationDocuments.idFile', null);
+                                            form.setValue('identificationDocuments.idFileName', '');
+                                            setPreviewUrl(null);
+                                          }}
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </FormControl>
+                              <FormDescription className="text-gray-600">
+                                Upload a clear image or PDF of your passport. Maximum file size: 5MB.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                      
+                            {/* Updated Additional Documents Section */}
+                            <FormItem>
+                              <FormLabel className="text-[#0A1933] font-medium">Additional Supporting Documents (Optional)</FormLabel>
+                              <div className="border-2 border-dashed border-[#20B2AA]/50 rounded-lg p-6 w-full flex flex-col items-center justify-center relative bg-white">
+                                <Upload className="h-6 w-6 text-[#20B2AA] mb-2" />
+                                <p className="text-sm text-[#0A1933] text-center">
+                                  Upload any additional documents if required
+                                </p>
+                                <p className="text-xs text-gray-400 text-center mt-1">
+                                  JPG, PNG, or PDF (max 5MB each)
+                                </p>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="absolute inset-0 w-full h-full opacity-0"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    document.getElementById('additionalDocs').click();
+                                  }}
+                                />
+                                <Input 
+                                  id="additionalDocs"
+                                  type="file" 
+                                  className="hidden" 
+                                  accept=".jpg,.jpeg,.png,.pdf"
+                                  multiple
+                                  onChange={handleAdditionalDocumentUpload}
+                                />
+                              </div>
+                            </FormItem>
+                      
+                            {formValues.identificationDocuments.additionalDocuments.length > 0 && (
+                              <div className="border rounded-md p-4 border-[#20B2AA]/30 bg-white">
+                                <h4 className="font-medium mb-2 text-[#0A1933] flex items-center">
+                                  <Paperclip className="h-4 w-4 mr-2 text-[#20B2AA]" />
+                                  Additional Documents
+                                </h4>
+                                <div className="space-y-2">
+                                  {formValues.identificationDocuments.additionalDocuments.map((doc, index) => (
+                                    <div key={index} className="flex justify-between items-center p-2 hover:bg-[#20B2AA]/5 rounded-md transition-colors">
+                                      <div className="flex items-center">
+                                        <div className="w-8 h-8 flex items-center justify-center bg-[#20B2AA]/10 rounded-md mr-3">
+                                          {doc.preview && doc.fileName.match(/\.(jpg|jpeg|png)$/i) ? (
+                                            <img 
+                                              src={doc.preview} 
+                                              alt="Document Preview" 
+                                              className="max-h-8 max-w-8 object-cover rounded"
+                                            />
+                                          ) : (
+                                            <FileText className="w-5 h-5 text-[#20B2AA]" />
+                                          )}
+                                        </div>
+                                        <p className="text-sm truncate max-w-xs text-[#0A1933]">{doc.fileName}</p>
+                                      </div>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        type="button"
+                                        className="text-[#0A1933] hover:bg-[#20B2AA]/10 hover:text-[#20B2AA]"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          removeAdditionalDocument(index);
+                                        }}
+                                      >
+                                        <MinusCircle className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Form>
+                  </CardContent>
+                </Card>
+              );
+case 6:
+  return (
+    <Card className="w-full shadow-md border border-[#20B2AA]/20 bg-gradient-to-r from-[#0A1933]/5 to-[#193366]/5">
+      <CardHeader className="bg-gradient-to-r from-[#0A1933] to-[#193366] text-white rounded-t-lg">
+        <CardTitle className="flex items-center text-[#FFD700]">
+          <span className="mr-2 bg-white rounded-full p-1">
+            <CheckCircle className="h-4 w-4 text-[#20B2AA]" />
+          </span>
+          Step 6: Review Your Information
+        </CardTitle>
+        <CardDescription className="text-gray-200">
+          Please review all the information before proceeding to payment.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-6">
+        <div className="space-y-6">
+          <div className="bg-white p-5 rounded-md border border-[#20B2AA]/30 shadow-sm">
+            <div className="flex items-center mb-4">
+              <Flag className="h-5 w-5 mr-2 text-[#20B2AA]" />
+              <h3 className="font-medium text-[#0A1933]">Step 1: State of Formation</h3>
             </div>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => {
-                form.setValue('identificationDocuments.idFile', null);
-                form.setValue('identificationDocuments.idFileName', '');
-                setPreviewUrl(null);
-              }}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  </FormControl>
-  <FormDescription>
-    Upload a clear image or PDF of your passport. Maximum file size: 5MB.
-  </FormDescription>
-  <FormMessage />
-</FormItem>
-          
-                      {/* Updated Additional Documents Section */}
-<FormItem>
-  <FormLabel>Additional Supporting Documents (Optional)</FormLabel>
-  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 w-full flex flex-col items-center justify-center relative">
-    <Upload className="h-6 w-6 text-gray-400 mb-2" />
-    <p className="text-sm text-gray-500 text-center">
-      Upload any additional documents if required
-    </p>
-    <p className="text-xs text-gray-400 text-center mt-1">
-      JPG, PNG, or PDF (max 5MB each)
-    </p>
-    <Button
-      type="button"
-      variant="ghost"
-      className="absolute inset-0 w-full h-full opacity-0"
-      onClick={(e) => {
-        e.preventDefault();
-        document.getElementById('additionalDocs').click();
-      }}
-    />
-    <Input 
-      id="additionalDocs"
-      type="file" 
-      className="hidden" 
-      accept=".jpg,.jpeg,.png,.pdf"
-      multiple
-      onChange={handleAdditionalDocumentUpload}
-    />
-  </div>
-</FormItem>
-          
-{formValues.identificationDocuments.additionalDocuments.length > 0 && (
-  <div className="border rounded-md p-4">
-    <h4 className="font-medium mb-2">Additional Documents</h4>
-    <div className="space-y-2">
-      {formValues.identificationDocuments.additionalDocuments.map((doc, index) => (
-        <div key={index} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-md transition-colors">
-          <div className="flex items-center">
-            <div className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-md mr-3">
-              {doc.preview && doc.fileName.match(/\.(jpg|jpeg|png)$/i) ? (
-                <img 
-                  src={doc.preview} 
-                  alt="Document Preview" 
-                  className="max-h-8 max-w-8 object-cover rounded"
-                />
-              ) : (
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              )}
+            <div className="pl-7 space-y-1">
+              <p className="flex items-center text-[#0A1933]">
+                <CheckCircle className="h-3 w-3 mr-2 text-[#20B2AA]" />
+                <span className="font-medium">State:</span> 
+                <span className="ml-2">{formValues.state}</span>
+              </p>
+              <p className="flex items-center text-[#0A1933]">
+                <CheckCircle className="h-3 w-3 mr-2 text-[#20B2AA]" />
+                <span className="font-medium">Filing Fee:</span> 
+                <span className="ml-2">${formValues.stateAmount}</span>
+              </p>
             </div>
-            <p className="text-sm truncate max-w-xs">{doc.fileName}</p>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              removeAdditionalDocument(index);
-            }}
-          >
-            <MinusCircle className="h-4 w-4" />
-          </Button>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
-                    </div>
-                  </Form>
-                </CardContent>
-              </>
-            );
+          
+          <div className="bg-white p-5 rounded-md border border-[#20B2AA]/30 shadow-sm">
+            <div className="flex items-center mb-4">
+              <Building2 className="h-5 w-5 mr-2 text-[#20B2AA]" />
+              <h3 className="font-medium text-[#0A1933]">Step 2: Company Information</h3>
+            </div>
+            <div className="pl-7 space-y-1">
+              <p className="flex items-center text-[#0A1933]">
+                <CheckCircle className="h-3 w-3 mr-2 text-[#20B2AA]" />
+                <span className="font-medium">Company Name:</span> 
+                <span className="ml-2">{formValues.companyName}</span>
+              </p>
+              <p className="flex items-center text-[#0A1933]">
+                <CheckCircle className="h-3 w-3 mr-2 text-[#20B2AA]" />
+                <span className="font-medium">Company Type:</span> 
+                <span className="ml-2">{formValues.companyType}</span>
+              </p>
+              <p className="flex items-center text-[#0A1933]">
+                <CheckCircle className="h-3 w-3 mr-2 text-[#20B2AA]" />
+                <span className="font-medium">Business Category:</span> 
+                <span className="ml-2">{formValues.category}</span>
+              </p>
+            </div>
+          </div>
+          
+          <div className="bg-white p-5 rounded-md border border-[#20B2AA]/30 shadow-sm">
+            <div className="flex items-center mb-4">
+              <Users className="h-5 w-5 mr-2 text-[#20B2AA]" />
+              <h3 className="font-medium text-[#0A1933]">Step 3: Ownership Information</h3>
+            </div>
+            <div className="pl-7 space-y-3">
+              {formValues.owners.map((owner, index) => (
+                <div key={index} className="flex items-start">
+                  <UserCircle className="h-4 w-4 mr-2 text-[#20B2AA] mt-0.5" />
+                  <div>
+                    <p className="text-[#0A1933] font-medium">{owner.fullName}</p>
+                    <p className="text-gray-600 text-sm">Ownership: {owner.ownershipPercentage}%</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="bg-white p-5 rounded-md border border-[#20B2AA]/30 shadow-sm">
+            <div className="flex items-center mb-4">
+              <MapPin className="h-5 w-5 mr-2 text-[#20B2AA]" />
+              <h3 className="font-medium text-[#0A1933]">Step 4: Residential Address</h3>
+            </div>
+            <div className="pl-7 space-y-1">
+              <p className="flex items-center text-[#0A1933]">
+                <Home className="h-3 w-3 mr-2 text-[#20B2AA]" />
+                {formValues.address.street}
+              </p>
+              <p className="flex items-center text-[#0A1933]">
+                <Building className="h-3 w-3 mr-2 text-[#20B2AA]" />
+                {formValues.address.city}, {formValues.address.state} {formValues.address.postalCode}
+              </p>
+              <p className="flex items-center text-[#0A1933]">
+                <Globe2 className="h-3 w-3 mr-2 text-[#20B2AA]" />
+                {formValues.address.country}
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white p-5 rounded-md border border-[#20B2AA]/30 shadow-sm">
+            <div className="flex items-center mb-4">
+              <FileText className="h-5 w-5 mr-2 text-[#20B2AA]" />
+              <h3 className="font-medium text-[#0A1933]">Step 5: Identification Documents</h3>
+            </div>
+            <div className="pl-7 space-y-4">
+              <p className="flex items-center text-[#0A1933]">
+                <CreditCard className="h-3 w-3 mr-2 text-[#20B2AA]" />
+                <span className="font-medium">ID Type:</span>
+                <span className="ml-2">Passport</span>
+              </p>
               
-        case 6:
-          return (
-            <>
-              <CardHeader>
-                <CardTitle>Step 6: Review Your Information</CardTitle>
-                <CardDescription>
-                  Please review all the information before proceeding to payment.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-2">Step 1: State of Formation</h3>
-                    <p><strong>State:</strong> {formValues.state}</p>
-                    <p><strong>Filing Fee:</strong> ${formValues.stateAmount}</p>
+              {/* Document Preview Section */}
+              {formValues.identificationDocuments.idFileName && (
+                <div>
+                  <p className="flex items-center text-[#0A1933] mb-2">
+                    <FileCheck className="h-3 w-3 mr-2 text-[#20B2AA]" />
+                    <span className="font-medium">Passport Document:</span>
+                  </p>
+                  <div className="border rounded-lg overflow-hidden">
+                    {/* Document preview - For image files */}
+                    {previewUrl && formValues.identificationDocuments.idFileName.match(/\.(jpg|jpeg|png)$/i) ? (
+                      <div className="p-2 bg-[#20B2AA]/5 border-b">
+                        <img 
+                          src={previewUrl} 
+                          alt="ID Document" 
+                          className="max-h-40 mx-auto object-contain rounded"
+                        />
+                      </div>
+                    ) : formValues.identificationDocuments.idFileName.match(/\.pdf$/i) ? (
+                      /* For PDF files, show a link to Cloudinary */
+                      <div className="p-4 bg-[#20B2AA]/5 border-b">
+                        <div className="flex flex-col items-center justify-center">
+                          <FileText className="w-12 h-12 text-[#20B2AA] mb-2" />
+                          <a 
+                            href={previewUrl || `https://res.cloudinary.com/dtzeedjp7/image/upload/${formValues.identificationDocuments.cloudinaryId || `v${Date.now()}/id_documents/${formValues.identificationDocuments.idFileName}`}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#20B2AA] font-medium flex items-center hover:underline"
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            View PDF Document
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-[#20B2AA]/5 border-b flex items-center justify-center">
+                        <FileText className="w-12 h-12 text-[#20B2AA]" />
+                      </div>
+                    )}
+                    <div className="p-3 flex items-center">
+                      <div className="w-8 h-8 flex items-center justify-center bg-[#20B2AA]/10 rounded-md mr-3">
+                        {formValues.identificationDocuments.idFileName.match(/\.pdf$/i) ? (
+                          <FileText className="w-4 h-4 text-[#20B2AA]" />
+                        ) : (
+                          <FileText className="w-4 h-4 text-[#20B2AA]" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-[#0A1933]">{formValues.identificationDocuments.idFileName}</p>
+                        <p className="text-xs text-gray-500">
+                          {formValues.identificationDocuments.idFile && 
+                            `${(formValues.identificationDocuments.idFile.size / (1024 * 1024)).toFixed(2)} MB`}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-2">Step 2: Company Information</h3>
-                    <p><strong>Company Name:</strong> {formValues.companyName}</p>
-                    <p><strong>Company Type:</strong> {formValues.companyType}</p>
-                    <p><strong>Business Category:</strong> {formValues.category}</p>
-                  </div>
-                  
-                  <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-2">Step 3: Ownership Information</h3>
-                    {formValues.owners.map((owner, index) => (
-                      <div key={index} className="mb-2">
-                        <p><strong>Owner {index + 1}:</strong> {owner.fullName} ({owner.ownershipPercentage}%)</p>
+                </div>
+              )}
+              
+              {/* Additional Documents */}
+              {formValues.identificationDocuments.additionalDocuments.length > 0 && (
+                <div>
+                  <p className="flex items-center text-[#0A1933] mb-2">
+                    <Files className="h-3 w-3 mr-2 text-[#20B2AA]" />
+                    <span className="font-medium">Additional Documents:</span>
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {formValues.identificationDocuments.additionalDocuments.map((doc, index) => (
+                      <div key={index} className="border rounded-md overflow-hidden">
+                        {/* For image files */}
+                        {doc.preview && doc.fileName.match(/\.(jpg|jpeg|png)$/i) ? (
+                          <div className="p-2 bg-[#20B2AA]/5 border-b">
+                            <img 
+                              src={doc.preview} 
+                              alt={`Document ${index + 1}`} 
+                              className="max-h-32 mx-auto object-contain rounded"
+                            />
+                          </div>
+                        ) : doc.fileName.match(/\.pdf$/i) ? (
+                          /* For PDF files, show a link to Cloudinary */
+                          <div className="p-4 bg-[#20B2AA]/5 border-b">
+                            <div className="flex flex-col items-center justify-center">
+                              <FileText className="w-10 h-10 text-[#20B2AA] mb-2" />
+                              <a 
+                                href={doc.preview || `https://res.cloudinary.com/dtzeedjp7/image/upload/${doc.cloudinaryId || `v${Date.now()}/id_documents/${doc.fileName}`}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[#20B2AA] text-xs font-medium flex items-center hover:underline"
+                              >
+                                <ExternalLink className="h-3 w-3 mr-1" />
+                                View PDF
+                              </a>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-4 bg-[#20B2AA]/5 border-b flex items-center justify-center">
+                            <FileText className="w-10 h-10 text-[#20B2AA]" />
+                          </div>
+                        )}
+                        <div className="p-2 flex items-center">
+                          <div className="w-6 h-6 flex items-center justify-center bg-[#20B2AA]/10 rounded-md mr-2">
+                            {doc.fileName.match(/\.pdf$/i) ? (
+                              <FileText className="w-3 h-3 text-[#20B2AA]" />
+                            ) : (
+                              <FileText className="w-3 h-3 text-[#20B2AA]" />
+                            )}
+                          </div>
+                          <p className="text-xs truncate text-[#0A1933]">{doc.fileName}</p>
+                        </div>
                       </div>
                     ))}
                   </div>
-                  
-                  <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-2">Step 4: Residential Address</h3>
-                    <p>{formValues.address.street}</p>
-                    <p>{formValues.address.city}, {formValues.address.state} {formValues.address.postalCode}</p>
-                    <p>{formValues.address.country}</p>
-                  </div>
-    
-                  <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-2">Step 5: Identification Documents</h3>
-                    <p><strong>ID Type:</strong> {formValues.identificationDocuments.idType === 'passport' ? 'Passport' : 
-                      formValues.identificationDocuments.idType === 'drivers_license' ? "Driver's License" : 
-                      "National ID Card"}</p>
-                    <p><strong>Document Uploaded:</strong> {formValues.identificationDocuments.idFileName || 'None'}</p>
-                    <p><strong>Additional Documents:</strong> {formValues.identificationDocuments.additionalDocuments.length > 0 ? 
-                      `${formValues.identificationDocuments.additionalDocuments.length} file(s) uploaded` : 'None'}</p>
-                  </div>
-                  
-                  <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-2">Registered Agent Information</h3>
-                    <p><strong>{AGENCY_NAME}</strong></p>
-                    <p>{AGENCY_DETAILS.address}, {AGENCY_DETAILS.city}, {AGENCY_DETAILS.state} {AGENCY_DETAILS.zipCode}</p>
-                    <p>Phone: {AGENCY_DETAILS.phone}</p>
-                    <p>Email: {AGENCY_DETAILS.email}</p>
-                  </div>
-    
-                  <div className="border rounded-lg p-4 bg-blue-50">
-                    <h3 className="font-semibold mb-2">Payment Status</h3>
-                    <Badge variant={formValues.paymentStatus === 'paid' ? "success" : "secondary"}>
-                      {formValues.paymentStatus === 'paid' ? 'PAID' : 'UNPAID'}
-                    </Badge>
-                    <p className="text-sm mt-2">
-                      {formValues.paymentStatus === 'paid' 
-                        ? 'Your registration fee has been processed successfully.' 
-                        : 'Please complete payment to finalize your LLC registration.'}
-                    </p>
-                  </div>
-    
-                  <div className="pt-4">
-                    <Button
-                      type="button"
-                      className="w-full"
-                      variant="outline"
-                      onClick={downloadSummaryPDF}
-                      disabled={isLoading}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                        Download Registration Summary (PDF)
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </>
-            );
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="bg-white p-5 rounded-md border border-[#20B2AA]/30 shadow-sm">
+            <div className="flex items-center mb-4">
+              <Building2 className="h-5 w-5 mr-2 text-[#20B2AA]" />
+              <h3 className="font-medium text-[#0A1933]">Registered Agent Information</h3>
+            </div>
+            <div className="pl-7 space-y-1">
+              <p className="text-[#0A1933] font-medium">{AGENCY_NAME}</p>
+              <p className="text-[#0A1933]">{AGENCY_DETAILS.address}, {AGENCY_DETAILS.city}, {AGENCY_DETAILS.state} {AGENCY_DETAILS.zipCode}</p>
+              <p className="flex items-center text-[#0A1933]">
+                <Phone className="h-3 w-3 mr-2 text-[#20B2AA]" />
+                {AGENCY_DETAILS.phone}
+              </p>
+              <p className="flex items-center text-[#0A1933]">
+                <Mail className="h-3 w-3 mr-2 text-[#20B2AA]" />
+                {AGENCY_DETAILS.email}
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-[#0A1933]/10 to-[#20B2AA]/10 p-5 rounded-md border border-[#20B2AA]/30 shadow-sm">
+            <div className="flex items-center mb-4">
+              <CreditCard className="h-5 w-5 mr-2 text-[#20B2AA]" />
+              <h3 className="font-medium text-[#0A1933]">Payment Status</h3>
+            </div>
+            <div className="pl-7">
+              <Badge variant={formValues.paymentStatus === 'paid' ? "success" : "secondary"} className={`${formValues.paymentStatus === 'paid' ? 'bg-green-500' : 'bg-[#FFD700]'} text-white px-3 py-1`}>
+                {formValues.paymentStatus === 'paid' ? 'PAID' : 'UNPAID'}
+              </Badge>
+              <p className="text-sm mt-2 text-[#0A1933]">
+                {formValues.paymentStatus === 'paid' 
+                  ? 'Your registration fee has been processed successfully.' 
+                  : 'Please complete payment to finalize your LLC registration.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-4">
+            <Button
+              type="button"
+              className="w-full bg-gradient-to-r from-[#0A1933] to-[#193366] hover:from-[#0A1933]/90 hover:to-[#193366]/90 text-white"
+              onClick={downloadSummaryPDF}
+              disabled={isLoading}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download Registration Summary (PDF)
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
           
           default:
             return null;
         }
       };
     // In your return statement, wrap the entire component with a loading state
-return (
-  <div className="max-w-4xl mx-auto p-4">
-    {isLoading && (
-      <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-        <div className="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-          <p className="text-gray-600">Processing your request...</p>
-        </div>
-      </div>
-    )}
-    
-<Card className="w-full shadow-md">
-  {/* Mobile step indicator */}
-  <div className="md:hidden px-4 pt-4 pb-2">
-    <div className="flex justify-between items-center">
-      <div className="text-sm font-medium text-gray-500">
-        Step {currentStep} of 6
-      </div>
-      <Badge variant="outline" className="font-normal">
-        {currentStep === 1 ? 'State Selection' :
-         currentStep === 2 ? 'Company Info' :
-         currentStep === 3 ? 'Ownership' :
-         currentStep === 4 ? 'Address' :
-         currentStep === 5 ? 'Documents' : 'Review'}
-      </Badge>
-    </div>
-  </div>
+    return (
+      // Add padding-top to prevent content from going under fixed header
+      <div className="max-w-4xl mx-auto p-4 pt-24">
+        {isLoading && (
+          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+              <p className="text-gray-600">Processing your request...</p>
+            </div>
+          </div>
+        )}
   
-  {/* Desktop progress bar */}
-  <div className="hidden md:block relative pt-4 px-4">
-    <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
-      <div style={{ width: `${(currentStep / 6) * 100}%` }} 
-           className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-300">
-      </div>
-    </div>
-    <div className="flex justify-between text-xs text-gray-500">
-      <span>Start</span>
-      <span>Complete</span>
-    </div>
-  </div>
+        <Card className="w-full shadow-md">
+          {/* Mobile step indicator with more visual appeal */}
+          <div className="md:hidden px-4 pt-6 pb-4">
+            <div className="flex justify-between items-center mb-2">
+              <div className="text-sm font-medium text-gray-700">
+                Step {currentStep} of {steps.length}
+              </div>
+              <Badge variant="outline" className="font-medium bg-blue-50 text-blue-700 border-blue-200">
+                {steps.find(step => step.number === currentStep)?.label}
+              </Badge>
+            </div>
+            
+            {/* Mobile progress bar */}
+            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-blue-500 transition-all duration-300"
+                style={{ width: `${(currentStep / steps.length) * 100}%` }}
+              ></div>
+            </div>
+          </div>
   
-  {renderStep()}
-  <CardFooter className="flex justify-between pt-6 border-t">
-    <div>
-      {currentStep > 1 && (
-        <Button 
-          type="button" 
-          variant="outline" 
-          onClick={handleBack}
-          disabled={isLoading}
-          className="border-gray-300 hover:bg-gray-50"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          <span className="hidden sm:inline">Back</span>
-        </Button>
-      )}
-    </div>
-    <div className="space-x-2">
-      <Button 
-        type="button" 
-        variant="secondary" 
-        onClick={handleSaveAndExit}
-        disabled={isLoading}
-        className="bg-gray-100 hover:bg-gray-200 text-gray-800 sm:px-4 px-2"
-      >
-        <span className="sm:inline hidden">Save & Exit</span>
-        <span className="sm:hidden inline">Save</span>
-      </Button>
-      
-      {currentStep < 6 ? (
-        <Button 
-          type="button" 
-          onClick={handleNext}
-          disabled={isLoading}
-          className="bg-blue-600 hover:bg-blue-700 sm:px-4 px-2"
-        >
-          <span className="sm:inline hidden">Next</span>
-          <ArrowRight className="h-4 w-4 sm:ml-2" />
-        </Button>
-      ) : (
-        <Button 
-          type="button" 
-          onClick={handleSubmit}
-          disabled={isLoading}
-          className="bg-green-600 hover:bg-green-700 sm:px-4 px-2 whitespace-nowrap"
-        >
-          <span className="sm:inline hidden">Proceed to Payment</span>
-          <span className="sm:hidden inline">Pay Now</span>
-        </Button>
-      )}
-    </div>
-  </CardFooter>
-</Card>
-  </div>
-);
+          {/* Desktop progress indicator with circles */}
+          <div className="hidden md:block px-8 pt-8 pb-6">
+            <div className="relative">
+              {/* Progress bar connecting the circles */}
+              <div className="absolute top-1/2 left-0 right-0 h-1 -translate-y-1/2 bg-gray-200">
+                <div 
+                  className="h-full bg-blue-500 transition-all duration-300"
+                  style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
+                ></div>
+              </div>
+              
+              {/* Step circles */}
+              <div className="relative flex justify-between">
+                {steps.map((step) => (
+                  <div key={step.number} className="flex flex-col items-center">
+                    <div 
+                      className={`
+                        w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium 
+                        ${step.number < currentStep 
+                          ? 'bg-blue-500 text-white' 
+                          : step.number === currentStep 
+                          ? 'bg-blue-500 text-white ring-4 ring-blue-100' 
+                          : 'bg-gray-200 text-gray-500'}
+                        transition-all duration-200
+                      `}
+                    >
+                      {step.number}
+                    </div>
+                    <span className={`
+                      mt-2 text-xs font-medium 
+                      ${step.number <= currentStep ? 'text-blue-700' : 'text-gray-500'}
+                    `}>
+                      {step.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+  
+          {/* Content section */}
+          <div className="px-4 pb-4">
+            {renderStep()}
+          </div>
+          
+          {/* Footer with actions */}
+          <CardFooter className="flex justify-between pt-6 pb-6 border-t">
+            <div>
+              {currentStep > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleBack}
+                  disabled={isLoading}
+                  className="border-gray-300 hover:bg-gray-50"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Back</span>
+                </Button>
+              )}
+            </div>
+            <div className="space-x-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleSaveAndExit}
+                disabled={isLoading}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-800 sm:px-4 px-2"
+              >
+                <span className="sm:inline hidden">Save & Exit</span>
+                <span className="sm:hidden inline">Save</span>
+              </Button>
+              
+              {currentStep < steps.length ? (
+                <Button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={isLoading}
+                  className="inline-flex items-center px-4 py-2 rounded-md bg-[#193366] text-white hover:bg-[#0A1933] transition-colors"
+                >
+                  <span className="sm:inline hidden">Next</span>
+                  <span className="flex items-center">
+                    <ArrowRight className="h-4 w-4 sm:ml-2" />
+                  </span>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={isLoading}
+                  className="bg-green-600 hover:bg-green-700 sm:px-4 px-2 whitespace-nowrap"
+                >
+                  <span className="sm:inline hidden">Proceed to Payment</span>
+                  <span className="sm:hidden inline">Pay Now</span>
+                </Button>
+              )}
+            </div>
+          </CardFooter>
+        </Card>
+      </div>
+    );
 };
 
 export default LLCRegistrationForm;

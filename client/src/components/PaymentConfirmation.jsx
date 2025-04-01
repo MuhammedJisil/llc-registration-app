@@ -98,7 +98,7 @@ const PaymentConfirmation = () => {
           <div className="pt-4 w-full">
             <Button 
               className="w-full" 
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/user/dashboard')}
             >
               Return to Dashboard
             </Button>
