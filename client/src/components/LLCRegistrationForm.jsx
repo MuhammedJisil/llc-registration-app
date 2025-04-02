@@ -31,6 +31,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { PlusCircle, MinusCircle, ArrowRight, ArrowLeft, CheckCircle, Upload, Info, ExternalLink, Flag, Users, FileCheck, Files, Phone, Download, FileText, CreditCard, X, Paperclip, MapPin, Home, Building, Mail, Globe2, Check, AlertCircle, Search, Building2, UserCircle, User, Percent } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -95,6 +105,8 @@ const LLCRegistrationForm = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [isUpdateMode, setIsUpdateMode] = useState(false);
+  const [isExitDialogOpen, setIsExitDialogOpen] = useState(false);
 
    // Initialize currentStep from navigation state if available
    const [currentStep, setCurrentStep] = useState(
@@ -171,6 +183,15 @@ useEffect(() => {
     handleStateChange(currentState);
   }
 }, [stateOptions, form, stateAmount]);
+
+useEffect(() => {
+  // Check if this is an update operation vs. continuing registration
+  if (location.state && location.state.isUpdate) {
+    setIsUpdateMode(true);
+  } else {
+    setIsUpdateMode(false);
+  }
+}, [location.state]);
 
 
 
@@ -351,6 +372,16 @@ const removeAdditionalDocument = (index) => {
     form.setValue('identificationDocuments.additionalDocuments', updatedDocs);
   };
 
+  const handleExitWithoutSaving = () => {
+    setIsExitDialogOpen(true);
+  };
+  
+  // Add this function to handle confirmation
+  const confirmExit = () => {
+    // Navigate back to dashboard without saving
+    navigate('/user/dashboard');
+  };
+
 
 // In saveProgress function - modify to use a user-specific key for the registrationId
 const saveProgress = async (shouldUpdateExisting = true) => {
@@ -368,12 +399,68 @@ const saveProgress = async (shouldUpdateExisting = true) => {
       throw new Error("User ID not found in token. Please log in again.");
     }
     
+    // Get the existing registrationId if available
+    const registrationId = localStorage.getItem(`registrationId_${userId}`);
+    
+    // Track if we're editing an existing registration
+    const isEditing = registrationId && shouldUpdateExisting;
+    
+    // If we have a registrationId, first fetch the current data to get the current status
+    let existingStatus = 'draft';
+    let highestStepReached = currentStep;
+    
+    if (isEditing) {
+      try {
+        const existingRegistration = await axios.get( `${BASE_URL}/api/llc-registrations/${registrationId}?userId=${userId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          }
+        });
+        
+        if (existingRegistration.data) {
+          // Get the existing status
+          if (existingRegistration.data.status) {
+            existingStatus = existingRegistration.data.status;
+          }
+          
+          // Track the highest step the user has reached
+          if (existingRegistration.data.step) {
+            highestStepReached = Math.max(existingRegistration.data.step, currentStep);
+          }
+          
+          console.log('Fetched existing data:', {
+            status: existingStatus,
+            existingStep: existingRegistration.data.step,
+            currentStep,
+            highestStepReached
+          });
+        }
+      } catch (error) {
+        console.warn('Could not fetch existing registration, using default status:', error);
+      }
+    }
+    
     // Create a new FormData object
     const formData = new FormData();
     const formValues = form.getValues();
     
-    // Get the existing registrationId if available - make it user-specific
-    const registrationId = localStorage.getItem(`registrationId_${userId}`);
+    // Determine status based on highest step reached and existing status
+    let status = existingStatus;
+    
+    // Only upgrade the status based on the highest step reached (never downgrade)
+    if (highestStepReached >= 6 && ['draft', 'pending'].includes(existingStatus)) {
+      status = 'submitted';
+    } else if (highestStepReached >= 5 && existingStatus === 'draft') {
+      status = 'pending';
+    }
+    
+    console.log('Status determination:', { 
+      existingStatus, 
+      currentStep,
+      highestStepReached,
+      newStatus: status,
+      keepingExistingStatus: status === existingStatus 
+    });
     
     // Prepare JSON data for non-file fields
     const jsonData = {
@@ -387,17 +474,16 @@ const saveProgress = async (shouldUpdateExisting = true) => {
       category: formValues.category,
       owners: formValues.owners,
       address: formValues.address,
-      status: 'draft',
+      status: status, // Use the determined status
       step: currentStep,
+      highestStepReached: highestStepReached, // Store the highest step reached
       paymentStatus: formValues.paymentStatus,
       // Add metadata about the files but don't include the actual file objects
       identificationDocuments: {
         idType: formValues.identificationDocuments.idType,
         idFileName: formValues.identificationDocuments.idFileName,
-        // Don't include the file itself here
         additionalDocuments: formValues.identificationDocuments.additionalDocuments.map(doc => ({
           fileName: doc.fileName
-          // Don't include the file itself here
         }))
       }
     };
@@ -405,12 +491,12 @@ const saveProgress = async (shouldUpdateExisting = true) => {
     // Convert the JSON data to a string and append it to the FormData
     formData.append('data', JSON.stringify(jsonData));
     
-    // Append ID document if it exists - using the field name that matches your backend
+    // Append ID document if it exists
     if (formValues.identificationDocuments.idFile) {
       formData.append('idDocument', formValues.identificationDocuments.idFile);
     }
     
-    // Append additional documents using the field name that matches your backend
+    // Append additional documents
     if (formValues.identificationDocuments.additionalDocuments && 
         formValues.identificationDocuments.additionalDocuments.length > 0) {
       formValues.identificationDocuments.additionalDocuments.forEach((doc) => {
@@ -420,12 +506,12 @@ const saveProgress = async (shouldUpdateExisting = true) => {
       });
     }
     
-    // Include any existing file paths that might have come from the server
+    // Include any existing file paths
     if (formValues.identificationDocuments.idFilePath) {
       formData.append('idFilePath', formValues.identificationDocuments.idFilePath);
     }
     
-    // Log the form data keys for debugging (don't log the actual files)
+    // Log the form data keys for debugging
     console.log('FormData keys:', Array.from(formData.keys()));
     
     // Send the request
@@ -458,7 +544,7 @@ const saveProgress = async (shouldUpdateExisting = true) => {
       }
     }
     
-    // Store registration ID for future updates - make it user-specific
+    // Store registration ID for future updates
     if (response.data.id && !localStorage.getItem(`registrationId_${userId}`)) {
       localStorage.setItem(`registrationId_${userId}`, response.data.id);
     }
@@ -1762,58 +1848,96 @@ case 6:
           
           {/* Footer with actions */}
           <CardFooter className="flex justify-between pt-6 pb-6 border-t">
-            <div>
-              {currentStep > 1 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleBack}
-                  disabled={isLoading}
-                  className="border-gray-300 hover:bg-gray-50"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">Back</span>
-                </Button>
-              )}
-            </div>
-            <div className="space-x-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={handleSaveAndExit}
-                disabled={isLoading}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-800 sm:px-4 px-2"
-              >
-                <span className="sm:inline hidden">Save & Exit</span>
-                <span className="sm:hidden inline">Save</span>
-              </Button>
-              
-              {currentStep < steps.length ? (
-                <Button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={isLoading}
-                  className="inline-flex items-center px-4 py-2 rounded-md bg-[#193366] text-white hover:bg-[#0A1933] transition-colors"
-                >
-                  <span className="sm:inline hidden">Next</span>
-                  <span className="flex items-center">
-                    <ArrowRight className="h-4 w-4 sm:ml-2" />
-                  </span>
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={isLoading}
-                  className="bg-green-600 hover:bg-green-700 sm:px-4 px-2 whitespace-nowrap"
-                >
-                  <span className="sm:inline hidden">Proceed to Payment</span>
-                  <span className="sm:hidden inline">Pay Now</span>
-                </Button>
-              )}
-            </div>
-          </CardFooter>
+  <div>
+    {currentStep > 1 && (
+      <Button
+        type="button"
+        variant="outline"
+        onClick={handleBack}
+        disabled={isLoading}
+        className="border-gray-300 hover:bg-gray-50"
+      >
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        <span className="hidden sm:inline">Back</span>
+      </Button>
+    )}
+  </div>
+  <div className="space-x-2">
+    {/* Only show "Save & Exit" when updating a registration */}
+    {isUpdateMode ? (
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={handleSaveAndExit}
+        disabled={isLoading}
+        className="bg-gray-100 hover:bg-gray-200 text-gray-800 sm:px-4 px-2"
+      >
+        <span className="sm:inline hidden">Save & Exit</span>
+        <span className="sm:hidden inline">Save</span>
+      </Button>
+    ) : (
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={handleExitWithoutSaving}
+        disabled={isLoading}
+        className="bg-gray-100 hover:bg-gray-200 text-gray-800 sm:px-4 px-2"
+      >
+        <span className="sm:inline hidden">Exit</span>
+        <span className="sm:hidden inline">Exit</span>
+      </Button>
+    )}
+    
+    {currentStep < steps.length ? (
+      <Button
+        type="button"
+        onClick={handleNext}
+        disabled={isLoading}
+        className="inline-flex items-center px-4 py-2 rounded-md bg-[#193366] text-white hover:bg-[#0A1933] transition-colors"
+      >
+        <span className="sm:inline hidden">Next</span>
+        <span className="flex items-center">
+          <ArrowRight className="h-4 w-4 sm:ml-2" />
+        </span>
+      </Button>
+    ) : (
+      <Button
+        type="button"
+        onClick={handleSubmit}
+        disabled={isLoading}
+        className="bg-green-600 hover:bg-green-700 sm:px-4 px-2 whitespace-nowrap"
+      >
+        <span className="sm:inline hidden">Proceed to Payment</span>
+        <span className="sm:hidden inline">Pay Now</span>
+      </Button>
+    )}
+  </div>
+</CardFooter>
         </Card>
+        <AlertDialog open={isExitDialogOpen} onOpenChange={setIsExitDialogOpen}>
+      <AlertDialogContent className="bg-[#0A1933] border border-[#20B2AA] text-white">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-[#FFD700]">Exit Without Saving</AlertDialogTitle>
+          <AlertDialogDescription className="text-gray-300">
+            Are you sure you want to exit without saving your progress? Any unsaved changes will be lost.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel 
+            className="bg-[#193366] text-white hover:bg-[#0A1933] border border-[#20B2AA]"
+          >
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={confirmExit}
+            className="bg-red-600 hover:bg-red-700 text-white"
+          >
+            Exit Without Saving
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+        
       </div>
     );
 };

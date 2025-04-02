@@ -10,7 +10,8 @@ import {
   CheckCircle2, 
   EyeOff,
   CreditCard,
-  Trash2
+  Trash2,
+  Plus
 } from 'lucide-react';
 import { 
   Popover, 
@@ -115,26 +116,31 @@ const NotificationBell = () => {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="icon" className="relative">
+        <Button 
+          variant="outline" 
+          size="icon" 
+          className="relative bg-transparent border-[#20B2AA] text-[#20B2AA] hover:bg-[#20B2AA] hover:text-[#0A1933]"
+        >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge 
               variant="destructive" 
-              className="absolute -top-2 -right-2 px-2 py-1 text-xs"
+              className="absolute -top-2 -right-2 px-2 py-1 text-xs bg-[#FFD700] text-[#0A1933] border-none"
             >
               {unreadCount}
             </Badge>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Notifications</h3>
+      <PopoverContent className="w-80 sm:w-96 bg-[#0A1933] border border-[#20B2AA] text-white p-0 shadow-lg">
+        <div className="flex justify-between items-center p-4 border-b border-[#193366]">
+          <h3 className="text-lg font-semibold text-[#20B2AA]">Notifications</h3>
           {unreadCount > 0 && (
             <Button 
               variant="ghost" 
               size="sm"
               onClick={markAllNotificationsAsRead}
+              className="text-[#20B2AA] hover:text-white hover:bg-[#193366]"
             >
               Mark all as read
             </Button>
@@ -143,29 +149,30 @@ const NotificationBell = () => {
         
         {loading ? (
           <div className="flex justify-center items-center p-4">
-            <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+            <Loader2 className="h-6 w-6 animate-spin text-[#20B2AA]" />
           </div>
         ) : notifications.length === 0 ? (
-          <p className="text-center text-gray-500 p-4">
+          <p className="text-center text-gray-400 p-4">
             No notifications
           </p>
         ) : (
-          <ScrollArea className="h-[300px] pr-4">
+          <ScrollArea className="h-[300px]">
             {notifications.map((notification) => (
               <Card 
                 key={notification.id} 
-                className={`mb-2 ${!notification.is_read ? 'bg-blue-50' : ''}`}
+                className={`mb-2 mx-2 mt-2 border border-[#193366] ${!notification.is_read ? 'bg-[#193366]' : 'bg-[#0A1933]'}`}
               >
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
-                    <CardTitle className="text-sm">
+                    <CardTitle className="text-sm text-[#FFD700]">
                       {notification.company_name}
                     </CardTitle>
                     {!notification.is_read && (
                       <Button 
                         variant="ghost" 
-                        size="icon" 
+                        size="icon"
                         onClick={() => markNotificationAsRead(notification.id)}
+                        className="text-[#20B2AA] hover:text-white hover:bg-[#193366]"
                       >
                         <EyeOff className="h-4 w-4" />
                       </Button>
@@ -173,15 +180,15 @@ const NotificationBell = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-2">
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-300">
                     {notification.message}
                   </p>
                   <div className="flex justify-between items-center mt-2">
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-400">
                       {new Date(notification.created_at).toLocaleString()}
                     </span>
                     {notification.is_read ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 text-[#20B2AA]" />
                     ) : null}
                   </div>
                 </CardContent>
@@ -196,7 +203,6 @@ const NotificationBell = () => {
 
 const Dashboard = () => {
   const [llcRegistrations, setLlcRegistrations] = useState([]);
-  const [otherApplications, setOtherApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -223,12 +229,10 @@ const Dashboard = () => {
         });
         
         if (Array.isArray(llcResponse.data)) {
-          console.log('LLC Registrations data:', llcResponse.data); // Debug log
+          console.log('LLC Registrations data:', llcResponse.data);
           setLlcRegistrations(llcResponse.data);
-          setOtherApplications([]);
         } else {
           setLlcRegistrations([]);
-          setOtherApplications([]);
         }
   
         setLoading(false);
@@ -259,17 +263,56 @@ const Dashboard = () => {
     }
   };
 
+  const renderRegistrationButton = (registration) => {
+    // Get property values safely with fallbacks for different field names
+    const currentStep = getPropertyValue(registration, ['current_step', 'step'], 1);
+    const status = getPropertyValue(registration, ['status'], "Draft");
+    const stepNumber = parseInt(currentStep);
+    const isCompleted = stepNumber === 6;
+    
+    // Check if this registration was previously at step 6 but now at a lower step
+    const wasCompleted = status.toLowerCase() === 'submitted' || 
+                         status.toLowerCase() === 'approved' || 
+                         status.toLowerCase() === 'pending' || 
+                         status.toLowerCase() === 'completed';
+    
+    // Use "Update Registration" if it was ever completed or is at step 6
+    if (isCompleted || wasCompleted) {
+      return (
+        <Button 
+          variant="outline"
+          onClick={() => handleUpdateRegistration(registration)}
+          className="flex items-center border-[#20B2AA] text-[#20B2AA] hover:bg-[#20B2AA] hover:text-[#0A1933]"
+        >
+          <Edit className="h-4 w-4 mr-2 sm:mr-0 md:mr-2" />
+          <span className="hidden sm:hidden md:inline">Update Registration</span>
+        </Button>
+      );
+    } else {
+      return (
+        <Button 
+          variant="outline"
+          onClick={() => handleEditRegistration(registration)}
+          className="flex items-center border-[#20B2AA] text-[#20B2AA] hover:bg-[#20B2AA] hover:text-[#0A1933]"
+        >
+          <Edit className="h-4 w-4 mr-2 sm:mr-0 md:mr-2" />
+          <span className="hidden sm:hidden md:inline">Continue Registration</span>
+        </Button>
+      );
+    }
+  };
+
   const getPaymentStatusColor = (status) => {
     if (!status) return 'bg-gray-100 text-gray-800';
     
     switch (status.toLowerCase()) {
       case 'paid':
-        return 'bg-green-100 text-green-800';
+        return 'bg-[#20B2AA] text-white';
       case 'not paid':
       case 'unpaid':
         return 'bg-red-100 text-red-800';
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-[#FFD700] text-[#0A1933]';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -299,12 +342,24 @@ const Dashboard = () => {
     // Store registration ID in localStorage with user-specific key
     localStorage.setItem(`registrationId_${userId}`, registration.id);
     
+    // Get status to check if it was previously completed
+    const status = getPropertyValue(registration, ['status'], "Draft");
+    const wasCompleted = status.toLowerCase() === 'submitted' || 
+                        status.toLowerCase() === 'approved' || 
+                        status.toLowerCase() === 'pending' || 
+                        status.toLowerCase() === 'completed';
+    
     // Navigate to the next step in the form
     // First determine the current step using our helper function
     const currentStep = getPropertyValue(registration, ['current_step', 'step'], 1);
     const nextStep = Math.min(parseInt(currentStep) + 1, 6);
     
-    navigate('/user/register-llc', { state: { currentStep: nextStep } });
+    // If it was previously completed, we're actually updating it
+    if (wasCompleted) {
+      navigate('/user/register-llc', { state: { currentStep: nextStep, isUpdate: true } });
+    } else {
+      navigate('/user/register-llc', { state: { currentStep: nextStep } });
+    }
   };
 
   const handleUpdateRegistration = (registration) => {
@@ -316,9 +371,9 @@ const Dashboard = () => {
     // Store registration ID in localStorage with user-specific key
     localStorage.setItem(`registrationId_${userId}`, registration.id);
     
-    // Navigate to the form with the current step
+    // Navigate to the form with the current step and update flag
     const currentStep = getPropertyValue(registration, ['current_step', 'step'], 1);
-    navigate('/user/register-llc', { state: { currentStep: parseInt(currentStep) } });
+    navigate('/user/register-llc', { state: { currentStep: parseInt(currentStep), isUpdate: true } });
   };
 
   const downloadSummaryPDF = async (registrationId, companyName) => {
@@ -356,40 +411,40 @@ const Dashboard = () => {
     }
   };
 
- const handleCompletePayment = async (registration) => {
-  try {
-    // Get the token and decode it to get the user ID
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-    
-    const decodedToken = jwtDecode(token);
-    const userId = decodedToken.id;
-    
-    // Try both possible property names for the filing fee
-    const filingFee = getPropertyValue(registration, ['filing_fee', 'stateAmount'], 0);
-    const amount = typeof filingFee === 'number' ? filingFee : parseFloat(filingFee) || 0;
-    
-    // Initialize the payment with your backend
-    const response = await axios.post(`${BASE_URL}/api/payments/initialize`, {
-      registrationId: registration.id,
-      amount: amount
-    }, {
-      headers: {
-        Authorization: `Bearer ${token}`
+  const handleCompletePayment = async (registration) => {
+    try {
+      // Get the token and decode it to get the user ID
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
       }
-    });
-    
-    // Redirect to the Stripe checkout page with client secret
-    navigate(`/user/stripe-checkout/${response.data.paymentId}?clientSecret=${response.data.clientSecret}`);
-  } catch (error) {
-    console.error('Error initializing payment:', error);
-    // You could add error handling here, such as displaying an error message to the user
-    setError('Failed to initialize payment. Please try again.');
-  }
-};
+      
+      const decodedToken = jwtDecode(token);
+      const userId = decodedToken.id;
+      
+      // Try both possible property names for the filing fee
+      const filingFee = getPropertyValue(registration, ['filing_fee', 'stateAmount'], 0);
+      const amount = typeof filingFee === 'number' ? filingFee : parseFloat(filingFee) || 0;
+      
+      // Initialize the payment with your backend
+      const response = await axios.post(`${BASE_URL}/api/payments/initialize`, {
+        registrationId: registration.id,
+        amount: amount
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      // Redirect to the Stripe checkout page with client secret
+      navigate(`/user/stripe-checkout/${response.data.paymentId}?clientSecret=${response.data.clientSecret}`);
+    } catch (error) {
+      console.error('Error initializing payment:', error);
+      // You could add error handling here, such as displaying an error message to the user
+      setError('Failed to initialize payment. Please try again.');
+    }
+  };
 
   const openDeleteDialog = (registration) => {
     setRegistrationToDelete(registration);
@@ -428,6 +483,29 @@ const Dashboard = () => {
     }
   };
 
+  // Updated function to display proper progress message based on status
+  const renderProgress = (registration) => {
+    const status = getPropertyValue(registration, ['status'], "Draft").toLowerCase();
+    const currentStep = getPropertyValue(registration, ['current_step', 'step'], 1);
+    const paymentStatus = getPropertyValue(registration, ['payment_status', 'paymentStatus'], "Not Paid").toLowerCase();
+    
+    // For submitted or pending registrations, show status-based message instead of step
+    if (status === 'submitted') {
+      return "Registration Submitted - Awaiting Review";
+    } else if (status === 'pending') {
+      return "Registration Under Review";
+    } else if (status === 'approved') {
+      return "Registration Approved";
+    } else if (status === 'rejected') {
+      return "Registration Rejected - Please Update";
+    } else if (paymentStatus === 'paid') {
+      return "Registration Under Processing";
+    } else {
+      // For drafts and other statuses, show the current step
+      return `Step ${currentStep}: ${renderCurrentStep(currentStep)}`;
+    }
+  };
+
   const renderCurrentStep = (step) => {
     const steps = [
       "State Selection", 
@@ -453,39 +531,45 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="container mx-auto p-4 pt-24">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Your Dashboard</h1>
-        <div className="flex items-center space-x-4">
-          <NotificationBell />
-          <Button onClick={() => navigate('/user/register-llc', { state: { newRegistration: true }})}>
-            Create New LLC
-          </Button>
+    <div className="w-full min-h-screen bg-gradient-to-b from-[#0A1933] to-[#193366]">
+      <div className="w-full p-4 pt-24 text-white">
+        <div className="container mx-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl md:text-3xl font-bold text-[#FFD700]">Your Dashboard</h1>
+            <div className="flex items-center space-x-2 md:space-x-4">
+              <NotificationBell />
+              <Button 
+                onClick={() => navigate('/user/register-llc', { state: { newRegistration: true }})}
+                className="bg-[#20B2AA] text-[#0A1933] hover:bg-[#FFD700] hover:text-[#0A1933] flex items-center"
+              >
+                <Plus className="h-4 w-4 mr-0 md:mr-2" />
+                <span className="hidden md:inline">Create New LLC</span>
+              </Button>
         </div>
       </div>
 
       {loading ? (
-        <Card className="w-full">
+        <Card className="w-full bg-[#0A1933] border border-[#20B2AA]">
           <CardContent className="flex justify-center items-center p-12">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
-            <p className="ml-2 text-gray-500">Loading your applications...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-[#20B2AA]" />
+            <p className="ml-2 text-[#20B2AA]">Loading your applications...</p>
           </CardContent>
         </Card>
       ) : error ? (
-        <Card className="w-full bg-red-50">
+        <Card className="w-full bg-red-900/20 border border-red-500">
           <CardContent className="p-6">
-            <p className="text-center text-red-600">{error}</p>
+            <p className="text-center text-red-400">{error}</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-8">
           {/* LLC Registrations Section */}
           <div>
-            <h2 className="text-xl font-semibold mb-4">Your LLC Registrations</h2>
+            <h2 className="text-lg md:text-xl font-semibold mb-4 text-[#20B2AA]">Your LLC Registrations</h2>
             {llcRegistrations.length === 0 ? (
-              <Card>
+              <Card className="bg-[#0A1933] border border-[#193366]">
                 <CardContent className="pt-6">
-                  <p className="text-center text-gray-500 py-4">
+                  <p className="text-center text-gray-400 py-4">
                     You haven't started any LLC registrations yet.
                   </p>
                 </CardContent>
@@ -515,12 +599,12 @@ const Dashboard = () => {
                   const isPaid = paymentStatus.toLowerCase() === 'paid';
 
                   return (
-                    <Card key={registration.id} className="shadow-sm">
+                    <Card key={registration.id} className="shadow-sm bg-[#0A1933] border border-[#193366]">
                       <CardHeader className="pb-2">
                         <div className="flex justify-between items-start">
                           <div>
-                            <CardTitle>{companyName}</CardTitle>
-                            <CardDescription>
+                            <CardTitle className="text-[#FFD700]">{companyName}</CardTitle>
+                            <CardDescription className="text-gray-300">
                               Registration #{registration.id} - Started on {formatDate(createdAt)}
                             </CardDescription>
                           </div>
@@ -537,74 +621,52 @@ const Dashboard = () => {
                       <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
                           <div>
-                            <p className="font-medium text-gray-600">State:</p>
-                            <p>{state}</p>
+                            <p className="font-medium text-[#20B2AA]">State:</p>
+                            <p className="text-gray-300">{state}</p>
                           </div>
                           <div>
-                            <p className="font-medium text-gray-600">Filing Fee:</p>
-                            <p>${typeof filingFee === 'number' ? 
+                            <p className="font-medium text-[#20B2AA]">Filing Fee:</p>
+                            <p className="text-gray-300">${typeof filingFee === 'number' ? 
                               filingFee.toFixed(2) : 
                               parseFloat(filingFee).toFixed(2) || '0.00'}</p>
                           </div>
                           <div>
-                            <p className="font-medium text-gray-600">Current Progress:</p>
-                            {isPaid ? (
-                              <p>Registration Under Processing</p>
-                            ) : (
-                              <p>Step {currentStep}: {renderCurrentStep(currentStep)}</p>
-                            )}
+                            <p className="font-medium text-[#20B2AA]">Current Progress:</p>
+                            <p className="text-gray-300">{renderProgress(registration)}</p>
                           </div>
                         </div>
                         <div className="mt-4 flex flex-wrap gap-2">
-                          {isCompleted ? (
-                            <Button 
-                              variant="outline"
-                              onClick={() => handleUpdateRegistration(registration)}
-                              className="flex items-center"
-                            >
-                              <Edit className="h-4 w-4 mr-2" />
-                              Update Registration
-                            </Button>
-                          ) : (
-                            <Button 
-                              variant="outline"
-                              onClick={() => handleEditRegistration(registration)}
-                              className="flex items-center"
-                            >
-                              <Edit className="h-4 w-4 mr-2" />
-                              Continue Registration
-                            </Button>
-                          )}
+                          {renderRegistrationButton(registration)}
                           
-                          {canDownloadSummary && (
-                            <Button 
-                              variant="outline"
-                              onClick={() => downloadSummaryPDF(registration.id, companyName)}
-                              className="flex items-center"
-                              disabled={isDownloading}
-                            >
-                              {isDownloading ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Downloading...
-                                </>
-                              ) : (
-                                <>
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Download Summary
-                                </>
-                              )}
-                            </Button>
-                          )}
+                          {(canDownloadSummary || status.toLowerCase() === 'submitted') && (
+  <Button 
+    variant="outline"
+    onClick={() => downloadSummaryPDF(registration.id, companyName)}
+    className="flex items-center border-[#20B2AA] text-[#20B2AA] hover:bg-[#20B2AA] hover:text-[#0A1933]"
+    disabled={isDownloading}
+  >
+    {isDownloading ? (
+      <>
+        <Loader2 className="h-4 w-4 mr-2 sm:mr-0 md:mr-2 animate-spin" />
+        <span className="hidden sm:hidden md:inline">Downloading...</span>
+      </>
+    ) : (
+      <>
+        <Download className="h-4 w-4 mr-2 sm:mr-0 md:mr-2" />
+        <span className="hidden sm:hidden md:inline">Download Summary</span>
+      </>
+    )}
+  </Button>
+)}
                           
                           {/* Only show payment button for completed registrations (Step 6) that aren't paid */}
                           {isPaymentEligible && !isPaid && (
                             <Button 
                               onClick={() => handleCompletePayment(registration)}
-                              className="flex items-center"
+                              className="flex items-center bg-[#FFD700] text-[#0A1933] hover:bg-[#20B2AA]"
                             >
-                              <CreditCard className="h-4 w-4 mr-2" />
-                              Complete Payment
+                              <CreditCard className="h-4 w-4 mr-2 sm:mr-0 md:mr-2" />
+                              <span className="hidden sm:hidden md:inline">Complete Payment</span>
                             </Button>
                           )}
                           
@@ -613,10 +675,10 @@ const Dashboard = () => {
                             <Button 
                               variant="outline"
                               onClick={() => openDeleteDialog(registration)}
-                              className="flex items-center text-red-600 hover:bg-red-50 hover:text-red-700"
+                              className="flex items-center border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
                             >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
+                              <Trash2 className="h-4 w-4 mr-2 sm:mr-0 md:mr-2" />
+                              <span className="hidden sm:hidden md:inline">Delete</span>
                             </Button>
                           )}
                         </div>
@@ -627,86 +689,32 @@ const Dashboard = () => {
               </div>
             )}
           </div>
-
-          {/* Only show separator and legacy section if there are legacy applications */}
-          {otherApplications.length > 0 && (
-            <>
-              <Separator />
-              
-              {/* Legacy Applications Section */}
-              <div>
-                <h2 className="text-xl font-semibold mb-4">Other Applications</h2>
-                <div className="grid grid-cols-1 gap-6">
-                  {otherApplications.map((app) => (
-                    <Card key={app.id} className="shadow-sm">
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <CardTitle>{app.business_name}</CardTitle>
-                            <CardDescription>
-                              Application #{app.id} - Submitted on {formatDate(app.created_at)}
-                            </CardDescription>
-                          </div>
-                          <Badge className={getStatusColor(app.status)}>
-                            {app.status}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <p className="font-medium text-gray-600">Business Address:</p>
-                            <p>{app.business_address || "N/A"}</p>
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-600">Industry:</p>
-                            <p>{app.industry_type || "N/A"}</p>
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-600">Payment Status:</p>
-                            <p>{app.payment_status || "N/A"}</p>
-                          </div>
-                        </div>
-                        <div className="mt-4 flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            onClick={() => navigate(`/applications/${app.id}`)}
-                          >
-                            View Details
-                          </Button>
-                          {app.payment_status === 'Not Paid' && (
-                            <Button onClick={() => navigate(`/applications/${app.id}/payment`)}>
-                              Complete Payment
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
         </div>
       )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-[#0A1933] border border-[#20B2AA] text-white">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Registration</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete <strong>{getPropertyValue(registrationToDelete, ['company_name', 'companyName'], "this LLC registration")}</strong>? 
+            <AlertDialogTitle className="text-[#FFD700]">Delete Registration</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300">
+              Are you sure you want to delete <strong className="text-[#20B2AA]">{getPropertyValue(registrationToDelete, ['company_name', 'companyName'], "this LLC registration")}</strong>? 
               This action cannot be undone and will permanently remove all related information 
               including documents, addresses, ownership details, and payment records.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={closeDeleteDialog} disabled={deleteLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel 
+              onClick={closeDeleteDialog} 
+              disabled={deleteLoading}
+              className="bg-[#193366] text-white hover:bg-[#0A1933] border border-[#20B2AA]"
+            >
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDeleteRegistration} 
               disabled={deleteLoading}
-              className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
+              className="bg-red-600 hover:bg-red-700 text-white"
             >
               {deleteLoading ? (
                 <>
@@ -720,7 +728,9 @@ const Dashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </div>
+  </div>
   );
 };
 

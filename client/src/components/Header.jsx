@@ -79,24 +79,43 @@ const Header = () => {
       return false;
     }
   };
-
   useEffect(() => {
     // Listen for custom event that can be triggered after login
-    const handleProfileUpdate = async (event) => {
+    const handleProfileUpdate = async () => {
       const token = localStorage.getItem('token');
-      if (token) {
+      const adminToken = localStorage.getItem('adminToken');
+      
+      if (adminToken) {
+        setIsAuthenticated(true);
+        setIsAdmin(true);
+        
+        try {
+          const adminData = JSON.parse(localStorage.getItem('adminInfo'));
+          
+          if (adminData) {
+            setUserProfile({
+              name: adminData.full_name || adminData.username || 'Admin',
+              email: adminData.email || '',
+              picture: '',
+              role: adminData.role || 'admin'
+            });
+          }
+        } catch (error) {
+          console.error('Error parsing admin profile:', error);
+        }
+      } else if (token) {
         await fetchUserProfile(token);
       }
     };
-
+  
     // Add event listener
     window.addEventListener('user-logged-in', handleProfileUpdate);
-
+  
     // Initial authentication check
-    const token = localStorage.getItem('token');
-    const adminToken = localStorage.getItem('adminToken');
-    
     const checkAuthentication = async () => {
+      const token = localStorage.getItem('token');
+      const adminToken = localStorage.getItem('adminToken');
+      
       if (adminToken) {
         setIsAuthenticated(true);
         setIsAdmin(true);
@@ -141,9 +160,9 @@ const Header = () => {
         setIsAdmin(false);
       }
     };
-
+  
     checkAuthentication();
-
+  
     // Cleanup
     return () => {
       window.removeEventListener('user-logged-in', handleProfileUpdate);
