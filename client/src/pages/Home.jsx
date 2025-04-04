@@ -47,14 +47,22 @@ const Home = () => {
 
   return (
     <div className="bg-white">
-      {/* WhatsApp contact button */}
-      <div 
-        className="fixed bottom-4 right-4 z-40 bg-green-500 p-3 rounded-full shadow-lg cursor-pointer hover:bg-green-600 transition-colors"
-        onClick={handleWhatsAppContact}
+    {/* WhatsApp contact button */}
+    <div 
+      className="fixed bottom-4 right-4 z-40 bg-green-500 p-3 rounded-full shadow-lg cursor-pointer hover:bg-green-600 transition-colors"
+      onClick={handleWhatsAppContact}
+    >
+      {/* WhatsApp SVG Icon */}
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        fill="white"
       >
-        <MessageCircle size={28} color="white" />
-      </div>
-
+        <path d="M20.52 3.48A11.89 11.89 0 0 0 12 0a11.89 11.89 0 0 0-8.52 3.48A11.89 11.89 0 0 0 0 12c0 2.04.51 4.05 1.49 5.82L0 24l6.3-1.65A11.89 11.89 0 0 0 12 24c3.19 0 6.19-1.24 8.52-3.48A11.89 11.89 0 0 0 24 12c0-3.19-1.24-6.19-3.48-8.52zM12 22c-1.79 0-3.53-.47-5.06-1.37l-.36-.21-3.73.98 1-3.63-.24-.38C2.45 15.36 2 13.71 2 12c0-5.52 4.48-10 10-10s10 4.48 10 10-4.48 10-10 10zm5.28-7.67c-.29-.15-1.7-.84-1.96-.94s-.46-.15-.66.15-.76.94-.93 1.13-.34.22-.63.07c-.29-.15-1.23-.45-2.34-1.44-.86-.76-1.44-1.7-1.61-1.99s-.02-.44.12-.58c.12-.12.29-.31.44-.46s.19-.26.29-.44.05-.33-.02-.48-.66-1.6-.91-2.19c-.24-.57-.48-.5-.66-.51h-.57c-.2 0-.51.07-.78.33s-1.02 1-1.02 2.43 1.04 2.82 1.19 3.02c.15.19 2.04 3.1 4.95 4.35.69.3 1.23.48 1.65.61.69.22 1.32.19 1.83.11.56-.08 1.7-.7 1.94-1.38.24-.67.24-1.25.17-1.38-.07-.13-.26-.2-.55-.35z"/>
+      </svg>
+    </div>
       {/* Hero Section */}
       <div id="hero" className="bg-[url('/hero.jpg')] bg-cover bg-center pt-24 pb-16 md:py-32 relative">
         <div className="absolute inset-0 bg-gradient-to-b from-[#0A1933]/70 to-[#0A1933]/90"></div>
