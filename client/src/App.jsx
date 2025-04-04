@@ -19,10 +19,12 @@ import UsersList from './components/UsersList';
 import UserRegistrations from './components/UserRegistrations';
 import RegistrationDetails from './components/RegistrationDetails';
 import { UserProtectedRoute, AdminProtectedRoute } from './components/ProtectedRoutes';
+import ScrollToTop from "./components/ScrollToTop";
 
 function App() {
   return (
     <Router>
+      <ScrollToTop />
       <div className="min-h-screen bg-gray-50">
         <Header />
         <Toaster />
