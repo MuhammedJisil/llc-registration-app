@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { BASE_URL } from '@/lib/config';
 
 export default function AdminLogin() {
   const [username, setUsername] = useState('');
@@ -22,7 +21,7 @@ export default function AdminLogin() {
     setError('');
     
     try {
-      const response = await axios.post(`${API_URL}/admin/login`, {
+      const response = await axios.post(`${BASE_URL}/api/admin/login`, {
         username,
         password
       });

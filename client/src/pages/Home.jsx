@@ -12,7 +12,7 @@ const Home = () => {
     const token = localStorage.getItem('token');
     
     if (token) {
-      navigate('/user/register-llc');
+      navigate('/user/register-llc', { state: { newRegistration: true }})
     } else {
       navigate('/register');
     }
