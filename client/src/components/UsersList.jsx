@@ -26,11 +26,15 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Bell, 
   CheckCircle,
-  X
+  X,
+  ChevronDown,
+  ChevronUp,
+  Eye
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BASE_URL } from '@/lib/config';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const Userslist = () => {
   const [users, setUsers] = useState([]);
@@ -49,6 +53,7 @@ const Userslist = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [expandedUsers, setExpandedUsers] = useState({});
   const navigate = useNavigate();
 
   // Registration status options
@@ -57,6 +62,14 @@ const Userslist = () => {
     { value: 'registered', label: 'Registered Users' },
     { value: 'unregistered', label: 'Unregistered Users' }
   ];
+
+  // Toggle expansion for mobile view
+  const toggleUserExpansion = (userId) => {
+    setExpandedUsers(prev => ({
+      ...prev,
+      [userId]: !prev[userId]
+    }));
+  };
 
   // Fetch users and notifications
   const fetchData = async () => {
@@ -161,13 +174,16 @@ const Userslist = () => {
   // Error handling
   if (error) {
     return (
-      <div className="p-6 text-red-500">
+      <div className="p-6 text-red-500 bg-[#0A1933]">
         <h2 className="text-2xl font-bold">Error</h2>
         <p>{error}</p>
-        <Button onClick={() => {
-          setError(null);
-          fetchData();
-        }}>
+        <Button 
+          onClick={() => {
+            setError(null);
+            fetchData();
+          }}
+          className="bg-[#20B2AA] hover:bg-[#1a9e97] text-[#0A1933] mt-4"
+        >
           Retry
         </Button>
       </div>
@@ -175,14 +191,20 @@ const Userslist = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 pt-20 space-y-6 bg-gradient-to-r from-[#0A1933] to-[#193366] min-h-screen text-white">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Users Management</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">
+          <span className="text-[#FFD700]">Users</span>
+        </h1>
         
         {/* Notifications Panel */}
         <Popover open={isNotificationOpen} onOpenChange={setIsNotificationOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="icon" className="relative">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="relative border-[#20B2AA] text-[#20B2AA] hover:bg-[#20B2AA] hover:text-[#0A1933]"
+            >
               <Bell className="h-5 w-5" />
               {notifications.filter(n => !n.is_read).length > 0 && (
                 <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full px-2 py-1 text-xs">
@@ -191,31 +213,32 @@ const Userslist = () => {
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-96 max-h-96 overflow-y-auto p-0">
-            <div className="p-4 border-b flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Notifications</h3>
+          <PopoverContent className="w-96 max-h-96 overflow-y-auto p-0 bg-[#193366] border border-[#20B2AA] text-white">
+            <div className="p-4 border-b border-[#20B2AA] flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-[#20B2AA]">Notifications</h3>
               <Button 
                 variant="ghost" 
                 size="icon" 
                 onClick={() => setIsNotificationOpen(false)}
+                className="text-white hover:bg-[#0A1933]"
               >
                 <X className="h-5 w-5" />
               </Button>
             </div>
             {notifications.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">
+              <div className="p-4 text-center text-gray-400">
                 No notifications
               </div>
             ) : (
               notifications.map((notif) => (
                 <div 
                   key={notif.id} 
-                  className={`p-4 border-b flex justify-between items-center ${!notif.is_read ? 'bg-blue-50' : ''}`}
+                  className={`p-4 border-b border-gray-700 flex justify-between items-center ${!notif.is_read ? 'bg-[#0A1933]' : ''}`}
                 >
                   <div>
-                    <p className="font-bold">{notif.full_name}</p>
-                    <p className="text-sm text-gray-600">{notif.message}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="font-bold text-[#FFD700]">{notif.full_name}</p>
+                    <p className="text-sm text-gray-300">{notif.message}</p>
+                    <p className="text-xs text-gray-400">
                       {new Date(notif.created_at).toLocaleString()}
                     </p>
                   </div>
@@ -224,8 +247,9 @@ const Userslist = () => {
                       variant="ghost" 
                       size="icon" 
                       onClick={() => markNotificationAsRead(notif.id)}
+                      className="hover:bg-[#0A1933]"
                     >
-                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <CheckCircle className="h-5 w-5 text-[#20B2AA]" />
                     </Button>
                   )}
                 </div>
@@ -237,35 +261,35 @@ const Userslist = () => {
 
       {/* User Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Total Users</CardTitle>
+        <Card className="bg-gradient-to-r from-[#0A1933] to-[#193366] border border-[#20B2AA] text-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[#20B2AA]">Total Users</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-bold text-white">
               {stats.totalUsers}
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Registered Users</CardTitle>
+        <Card className="bg-gradient-to-r from-[#0A1933] to-[#193366] border border-[#20B2AA] text-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[#20B2AA]">Registered Users</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-bold text-white">
               {stats.registeredUsers}
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>New Users</CardTitle>
+        <Card className="bg-gradient-to-r from-[#0A1933] to-[#193366] border border-[#20B2AA] text-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[#20B2AA]">New Users</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-bold text-white flex items-center">
               {stats.newUsers}
               {stats.newUsers > 0 && (
-                <Badge variant="destructive" className="ml-2">
+                <Badge variant="destructive" className="ml-2 bg-[#FFD700] text-[#0A1933]">
                   New
                 </Badge>
               )}
@@ -275,28 +299,30 @@ const Userslist = () => {
       </div>
 
       {/* Users Table */}
-      <Card>
+      <Card className="bg-gradient-to-r from-[#0A1933] to-[#193366] border border-[#20B2AA] text-white">
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Users List</CardTitle>
-            <div className="flex space-x-2">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+            <CardTitle className="text-[#FFD700]">Users List</CardTitle>
+            <div className="flex flex-col sm:flex-row w-full md:w-auto space-y-2 sm:space-y-0 sm:space-x-2">
               <Input 
                 placeholder="Search users..." 
                 value={filters.search}
                 onChange={(e) => setFilters({...filters, search: e.target.value})}
+                className="bg-[#0A1933] border-[#20B2AA] text-white placeholder:text-gray-400"
               />
               <Select 
                 value={filters.registrationStatus} 
                 onValueChange={(value) => setFilters({...filters, registrationStatus: value})}
               >
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px] bg-[#0A1933] border-[#20B2AA] text-white">
                   <SelectValue placeholder="Filter by Registration" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-[#193366] border border-[#20B2AA] text-white">
                   {REGISTRATION_STATUS_OPTIONS.map((status) => (
                     <SelectItem 
                       key={status.value} 
                       value={status.value}
+                      className="hover:bg-[#0A1933] cursor-pointer"
                     >
                       {status.label}
                     </SelectItem>
@@ -308,49 +334,110 @@ const Userslist = () => {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-center py-4">Loading...</div>
+            <div className="text-center py-8 text-[#20B2AA]">Loading...</div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Registration Count</TableHead>
-                  <TableHead>Created At</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop View */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b border-[#20B2AA] hover:bg-transparent">
+                      <TableHead className="text-[#20B2AA]">Name</TableHead>
+                      <TableHead className="text-[#20B2AA]">Email</TableHead>
+                      <TableHead className="text-[#20B2AA]">Registration Count</TableHead>
+                      <TableHead className="text-[#20B2AA]">Created At</TableHead>
+                      <TableHead className="text-[#20B2AA]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((user) => (
+                      <TableRow key={user.id} className="border-b border-gray-700">
+                        <TableCell>
+                          <div className="flex items-center">
+                            {user.full_name}
+                            {user.is_new_user && (
+                              <Badge variant="destructive" className="ml-2 bg-[#FFD700] text-[#0A1933]">
+                                New
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>{user.registration_count || 0}</TableCell>
+                        <TableCell>
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          {user.registration_count > 0 ? (
+                            <Button 
+                              variant="outline" 
+                              onClick={() => navigate(`/admin/users/${user.id}/registrations`)}
+                              className="border-[#20B2AA] text-[#20B2AA] hover:bg-[#20B2AA] hover:text-[#0A1933]"
+                            >
+                              View Registrations
+                            </Button>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile View */}
+              <div className="md:hidden space-y-4">
                 {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
+                  <Collapsible 
+                    key={user.id} 
+                    open={expandedUsers[user.id]} 
+                    onOpenChange={() => toggleUserExpansion(user.id)}
+                    className="border border-[#20B2AA] rounded-md overflow-hidden"
+                  >
+                    <CollapsibleTrigger className="flex justify-between items-center w-full p-4 bg-[#193366]">
                       <div className="flex items-center">
-                        {user.full_name}
-                        {user.is_new_user && (
-                          <Badge variant="destructive" className="ml-2">
-                            New
-                          </Badge>
-                        )}
+                        <div>
+                          <span className="font-medium">{user.full_name}</span>
+                          {user.is_new_user && (
+                            <Badge variant="destructive" className="ml-2 bg-[#FFD700] text-[#0A1933]">
+                              New
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.registration_count || 0}</TableCell>
-                    <TableCell>
-                      {new Date(user.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => navigate(`/admin/users/${user.id}/registrations`)}
-                        disabled={user.registration_count === 0}
-                      >
-                        View Registrations
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                      {expandedUsers[user.id] ? <ChevronUp className="h-5 w-5 text-[#20B2AA]" /> : <ChevronDown className="h-5 w-5 text-[#20B2AA]" />}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="p-4 bg-[#0A1933] space-y-2">
+                      <div>
+                        <span className="text-sm text-[#20B2AA]">Email:</span>
+                        <p>{user.email}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-[#20B2AA]">Registration Count:</span>
+                        <p>{user.registration_count || 0}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-[#20B2AA]">Created At:</span>
+                        <p>{new Date(user.created_at).toLocaleDateString()}</p>
+                      </div>
+                      {user.registration_count > 0 && (
+                        <div className="pt-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => navigate(`/admin/users/${user.id}/registrations`)}
+                            className="border-[#20B2AA] text-[#20B2AA] hover:bg-[#20B2AA] hover:text-[#0A1933] w-full"
+                          >
+                            <Eye className="h-4 w-4 mr-2" /> View
+                          </Button>
+                        </div>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
