@@ -48,63 +48,72 @@ const PaymentConfirmation = () => {
   }, [id, paymentIntent, paymentStatus]);
   
   return (
-    <div className="container mx-auto py-8 max-w-lg">
-      <Card>
-        <CardHeader>
-          <CardTitle>Payment {status === 'success' ? 'Successful' : 'Status'}</CardTitle>
-          <CardDescription>
-            LLC Registration Payment Result
-          </CardDescription>
-        </CardHeader>
-        
-        <CardContent className="flex flex-col items-center py-6 space-y-4">
-          {status === 'loading' && (
-            <>
-              <Loader2 className="h-16 w-16 text-primary animate-spin" />
-              <p className="text-center text-lg">Verifying your payment...</p>
-            </>
-          )}
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-[#0A1933] to-[#193366] pt-[60px]">
+      <div className="container mx-auto py-8 max-w-lg px-4">
+        <Card className="bg-[#0A1933]/70 border border-[#20B2AA]/30 shadow-xl text-white">
+          <CardHeader className="border-b border-gray-700">
+            <CardTitle className="text-xl">
+              <span className="text-[#FFD700]">Payment</span>{' '}
+              {status === 'success' ? (
+                <span className="text-[#20B2AA]">Successful</span>
+              ) : (
+                <span className="text-[#20B2AA]">Status</span>
+              )}
+            </CardTitle>
+            <CardDescription className="text-gray-300">
+              LLC Registration Payment Result
+            </CardDescription>
+          </CardHeader>
           
-          {status === 'success' && (
-            <>
-              <CheckCircle className="h-16 w-16 text-green-500" />
-              <h3 className="text-xl font-bold">Payment Successful!</h3>
-              <p className="text-center">
-                Your LLC registration payment has been processed successfully. You'll receive a confirmation email shortly.
-              </p>
-            </>
-          )}
-          
-          {status === 'failed' && (
-            <>
-              <XCircle className="h-16 w-16 text-red-500" />
-              <h3 className="text-xl font-bold">Payment Failed</h3>
-              <p className="text-center">
-                We couldn't process your payment. Please try again or contact support for assistance.
-              </p>
-            </>
-          )}
-          
-          {status === 'error' && (
-            <>
-              <XCircle className="h-16 w-16 text-amber-500" />
-              <h3 className="text-xl font-bold">Verification Error</h3>
-              <p className="text-center">
-                We couldn't verify your payment status. Please contact support for assistance.
-              </p>
-            </>
-          )}
-          
-          <div className="pt-4 w-full">
-            <Button 
-              className="w-full" 
-              onClick={() => navigate('/user/dashboard')}
-            >
-              Return to Dashboard
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          <CardContent className="flex flex-col items-center py-8 space-y-4">
+            {status === 'loading' && (
+              <>
+                <Loader2 className="h-16 w-16 text-[#20B2AA] animate-spin" />
+                <p className="text-center text-lg text-gray-300">Verifying your payment...</p>
+              </>
+            )}
+            
+            {status === 'success' && (
+              <>
+                <CheckCircle className="h-16 w-16 text-green-400" />
+                <h3 className="text-xl font-bold text-[#FFD700]">Payment Successful!</h3>
+                <p className="text-center text-gray-300">
+                  Your LLC registration payment has been processed successfully. You'll receive a confirmation email shortly.
+                </p>
+              </>
+            )}
+            
+            {status === 'failed' && (
+              <>
+                <XCircle className="h-16 w-16 text-red-400" />
+                <h3 className="text-xl font-bold text-red-300">Payment Failed</h3>
+                <p className="text-center text-gray-300">
+                  We couldn't process your payment. Please try again or contact support for assistance.
+                </p>
+              </>
+            )}
+            
+            {status === 'error' && (
+              <>
+                <XCircle className="h-16 w-16 text-amber-400" />
+                <h3 className="text-xl font-bold text-amber-300">Verification Error</h3>
+                <p className="text-center text-gray-300">
+                  We couldn't verify your payment status. Please contact support for assistance.
+                </p>
+              </>
+            )}
+            
+            <div className="pt-6 w-full">
+              <Button 
+                className="w-full bg-[#20B2AA] hover:bg-[#20B2AA]/80 text-[#0A1933] font-medium" 
+                onClick={() => navigate('/user/dashboard')}
+              >
+                Return to Dashboard
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

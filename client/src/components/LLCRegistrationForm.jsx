@@ -740,60 +740,71 @@ const handleSubmit = async () => {
       if (!token) {
         throw new Error("User authentication token is missing. Please log in again.");
       }
-  
+      
       const decodedToken = jwtDecode(token);
       const userId = decodedToken.id;
-  
+      
       if (!userId) {
         throw new Error("User ID not found in token. Please log in again.");
       }
-  
-      const registrationId = localStorage.getItem(`registrationId_${userId}`);
-  
-      const response = await axios.get(`${BASE_URL}/api/llc-registrations/${registrationId}/pdf`, {
-        responseType: "blob",
-        params: { userId }
-      });
-  
-      // Create a download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `${formValues.companyName || "LLC"}_Registration_Summary.pdf`);
-      document.body.appendChild(link);
-      link.click();
       
-      // Clean up
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(link);
-  
-      // Optional: Additional handling for document URLs
-      const documentUrls = response.data.documentUrls || [];
-      documentUrls.forEach(doc => {
-        if (doc.name.toLowerCase().endsWith('.pdf')) {
-          // You can add additional handling for PDF URLs if needed
-          console.log(`PDF Document: ${doc.name}, URL: ${doc.url}`);
-        }
-      });
-  
+      const registrationId = localStorage.getItem(`registrationId_${userId}`);
+      
+      // Create a safe filename
+      const safeFileName = (formValues.companyName || "LLC").replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      
+      // Detect if user is on mobile
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // For mobile devices - open in a new tab/window
+        const pdfUrl = `${BASE_URL}/api/llc-registrations/${registrationId}/pdf?userId=${userId}`;
+        window.open(pdfUrl, '_blank');
+      } else {
+        // For desktop - use blob download approach
+        const response = await axios.get(`${BASE_URL}/api/llc-registrations/${registrationId}/pdf`, {
+          responseType: "blob",
+          params: { userId }
+        });
+        
+        // Create a download link
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `${safeFileName}_Registration_Summary.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        
+        // Cleanup
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(link);
+        }, 100);
+        
+        // Optional: Additional handling for document URLs
+        const documentUrls = response.data.documentUrls || [];
+        documentUrls.forEach(doc => {
+          if (doc.name.toLowerCase().endsWith('.pdf')) {
+            console.log(`PDF Document: ${doc.name}, URL: ${doc.url}`);
+          }
+        });
+      }
     } catch (error) {
       console.error("Error downloading PDF:", error);
-      // Optionally, handle specific error scenarios
+      alert("Failed to download PDF. Please try again or contact support.");
+      
+      // Detailed error logging
       if (error.response) {
-        // The request was made and the server responded with a status code
         console.error("Server responded with error:", error.response.data);
       } else if (error.request) {
-        // The request was made but no response was received
         console.error("No response received from server");
       } else {
-        // Something happened in setting up the request
         console.error("Error setting up the request:", error.message);
       }
     } finally {
       setIsLoading(false);
     }
   };
-  
   
 
   // Render steps

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { BASE_URL } from '@/lib/config';
+import { Eye, EyeOff } from 'lucide-react';
 
 const ResetPassword = () => {
   const [formData, setFormData] = useState({
@@ -17,6 +18,7 @@ const ResetPassword = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
   const [isValidToken, setIsValidToken] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { token } = useParams();
 
@@ -121,6 +123,10 @@ const ResetPassword = () => {
     }
   };
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   if (isValidating) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-[#0A1933] to-[#193366] p-4">
@@ -223,15 +229,26 @@ const ResetPassword = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-gray-300">New Password</Label>
+                <div className='relative'>
                 <Input 
                   id="password" 
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"} 
                   value={formData.password}
                   onChange={handleChange}
                   className={`bg-[#0A1933] border border-gray-600 focus:border-[#20B2AA] text-white ${errors.password ? 'border-red-500' : ''}`}
                   required
                 />
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-white"
+                    onClick={togglePasswordVisibility}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </Button>
+                </div>
                 {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
                 <p className="text-gray-400 text-xs">
                   Password must be at least 8 characters and include uppercase, lowercase, number, and special character
@@ -242,7 +259,7 @@ const ResetPassword = () => {
                 <Input 
                   id="confirmPassword" 
                   name="confirmPassword"
-                  type="password"
+                  type={showPassword ? "text" : "password"} 
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   className={`bg-[#0A1933] border border-gray-600 focus:border-[#20B2AA] text-white ${errors.confirmPassword ? 'border-red-500' : ''}`}

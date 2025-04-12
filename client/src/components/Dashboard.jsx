@@ -391,21 +391,45 @@ const Dashboard = () => {
         throw new Error("User ID not found in token. Please log in again.");
       }
       
-      const response = await axios.get(`${BASE_URL}/api/llc-registrations/${registrationId}/pdf`, {
-        responseType: "blob",
-        params: { userId } // Pass userId as a query parameter
-      });
+      // Detect if user is on mobile
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       
-      // Create a download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `${companyName || "LLC"}_Registration_Summary.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      if (isMobile) {
+        // For mobile devices - open in a new tab/window
+        // Create a safe filename
+        const safeFileName = (companyName || "LLC").replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        
+        // Open in new tab with query parameters
+        const pdfUrl = `${BASE_URL}/api/llc-registrations/${registrationId}/pdf?userId=${userId}`;
+        window.open(pdfUrl, '_blank');
+      } else {
+        // For desktop - use blob download approach
+        const response = await axios.get(`${BASE_URL}/api/llc-registrations/${registrationId}/pdf`, {
+          responseType: "blob",
+          params: { userId }
+        });
+        
+        // Create a download link
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement("a");
+        link.href = url;
+        
+        // Create a safe filename
+        const safeFileName = (companyName || "LLC").replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        link.setAttribute("download", `${safeFileName}_Registration_Summary.pdf`);
+        
+        document.body.appendChild(link);
+        link.click();
+        
+        // Cleanup
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(link);
+        }, 100);
+      }
     } catch (error) {
       console.error("Error downloading PDF:", error);
+      alert("Failed to download PDF. Please try again or contact support.");
     } finally {
       setIsDownloading(false);
     }

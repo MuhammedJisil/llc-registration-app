@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
@@ -7,6 +7,58 @@ const Home = () => {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [formSubmitted, setFormSubmitted] = useState(false);
+  
+  // Refs for animation elements
+  const featureRefs = useRef([]);
+  const stateRefs = useRef([]);
+  const featureTitleRef = useRef(null);
+  const featureDescRef = useRef(null);
+  const stateTitleRef = useRef(null);
+  const stateDescRef = useRef(null);
+  const contactFormRef = useRef(null);
+  const ctaSectionRef = useRef(null);
+
+  useEffect(() => {
+    // Setup intersection observer for animation
+    const observerOptions = {
+      root: null,
+      rootMargin: '0px',
+      threshold: 0.1
+    };
+
+    const handleIntersect = (entries, observer) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('animate-in');
+          observer.unobserve(entry.target);
+        }
+      });
+    };
+
+    const observer = new IntersectionObserver(handleIntersect, observerOptions);
+
+    // Observe feature cards
+    featureRefs.current.forEach(ref => {
+      if (ref) observer.observe(ref);
+    });
+
+    // Observe state cards
+    stateRefs.current.forEach(ref => {
+      if (ref) observer.observe(ref);
+    });
+
+    // Observe section titles and descriptions
+    if (featureTitleRef.current) observer.observe(featureTitleRef.current);
+    if (featureDescRef.current) observer.observe(featureDescRef.current);
+    if (stateTitleRef.current) observer.observe(stateTitleRef.current);
+    if (stateDescRef.current) observer.observe(stateDescRef.current);
+    if (contactFormRef.current) observer.observe(contactFormRef.current);
+    if (ctaSectionRef.current) observer.observe(ctaSectionRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
   
   const handleGetStarted = () => {
     const token = localStorage.getItem('token');
@@ -46,22 +98,59 @@ const Home = () => {
 
   return (
     <div className="bg-white">
-    {/* WhatsApp contact button */}
-    <div 
-      className="fixed bottom-4 right-4 z-40 bg-green-500 p-3 rounded-full shadow-lg cursor-pointer hover:bg-green-600 transition-colors"
-      onClick={handleWhatsAppContact}
-    >
-      {/* WhatsApp SVG Icon */}
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="28"
-        height="28"
-        viewBox="0 0 24 24"
-        fill="white"
+      {/* Animation CSS - Add these styles to your global CSS or inline */}
+      <style jsx>{`
+        .animate-in {
+          animation: fadeInUp 0.6s ease forwards;
+        }
+        
+        .animate-in.delay-100 {
+          animation-delay: 0.1s;
+        }
+        
+        .animate-in.delay-200 {
+          animation-delay: 0.2s;
+        }
+        
+        .animate-in.delay-300 {
+          animation-delay: 0.3s;
+        }
+        
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        /* Initially hide animatable elements */
+        .animate-hidden {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+      `}</style>
+      
+      {/* WhatsApp contact button */}
+      <div 
+        className="fixed bottom-4 right-4 z-40 bg-green-500 p-3 rounded-full shadow-lg cursor-pointer hover:bg-green-600 transition-colors"
+        onClick={handleWhatsAppContact}
       >
-        <path d="M20.52 3.48A11.89 11.89 0 0 0 12 0a11.89 11.89 0 0 0-8.52 3.48A11.89 11.89 0 0 0 0 12c0 2.04.51 4.05 1.49 5.82L0 24l6.3-1.65A11.89 11.89 0 0 0 12 24c3.19 0 6.19-1.24 8.52-3.48A11.89 11.89 0 0 0 24 12c0-3.19-1.24-6.19-3.48-8.52zM12 22c-1.79 0-3.53-.47-5.06-1.37l-.36-.21-3.73.98 1-3.63-.24-.38C2.45 15.36 2 13.71 2 12c0-5.52 4.48-10 10-10s10 4.48 10 10-4.48 10-10 10zm5.28-7.67c-.29-.15-1.7-.84-1.96-.94s-.46-.15-.66.15-.76.94-.93 1.13-.34.22-.63.07c-.29-.15-1.23-.45-2.34-1.44-.86-.76-1.44-1.7-1.61-1.99s-.02-.44.12-.58c.12-.12.29-.31.44-.46s.19-.26.29-.44.05-.33-.02-.48-.66-1.6-.91-2.19c-.24-.57-.48-.5-.66-.51h-.57c-.2 0-.51.07-.78.33s-1.02 1-1.02 2.43 1.04 2.82 1.19 3.02c.15.19 2.04 3.1 4.95 4.35.69.3 1.23.48 1.65.61.69.22 1.32.19 1.83.11.56-.08 1.7-.7 1.94-1.38.24-.67.24-1.25.17-1.38-.07-.13-.26-.2-.55-.35z"/>
-      </svg>
-    </div>
+        {/* WhatsApp SVG Icon */}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="white"
+        >
+          <path d="M20.52 3.48A11.89 11.89 0 0 0 12 0a11.89 11.89 0 0 0-8.52 3.48A11.89 11.89 0 0 0 0 12c0 2.04.51 4.05 1.49 5.82L0 24l6.3-1.65A11.89 11.89 0 0 0 12 24c3.19 0 6.19-1.24 8.52-3.48A11.89 11.89 0 0 0 24 12c0-3.19-1.24-6.19-3.48-8.52zM12 22c-1.79 0-3.53-.47-5.06-1.37l-.36-.21-3.73.98 1-3.63-.24-.38C2.45 15.36 2 13.71 2 12c0-5.52 4.48-10 10-10s10 4.48 10 10-4.48 10-10 10zm5.28-7.67c-.29-.15-1.7-.84-1.96-.94s-.46-.15-.66.15-.76.94-.93 1.13-.34.22-.63.07c-.29-.15-1.23-.45-2.34-1.44-.86-.76-1.44-1.7-1.61-1.99s-.02-.44.12-.58c.12-.12.29-.31.44-.46s.19-.26.29-.44.05-.33-.02-.48-.66-1.6-.91-2.19c-.24-.57-.48-.5-.66-.51h-.57c-.2 0-.51.07-.78.33s-1.02 1-1.02 2.43 1.04 2.82 1.19 3.02c.15.19 2.04 3.1 4.95 4.35.69.3 1.23.48 1.65.61.69.22 1.32.19 1.83.11.56-.08 1.7-.7 1.94-1.38.24-.67.24-1.25.17-1.38-.07-.13-.26-.2-.55-.35z"/>
+        </svg>
+      </div>
+      
       {/* Hero Section */}
       <div id="hero" className="bg-[url('/hero.jpg')] bg-cover bg-center pt-24 pb-16 md:py-32 relative">
         <div className="absolute inset-0 bg-gradient-to-b from-[#0A1933]/70 to-[#0A1933]/90"></div>
@@ -98,16 +187,25 @@ const Home = () => {
       {/* Features Section */}
       <div id="features" className="bg-gradient-to-b from-[#0A1933] to-[#193366] text-white py-20">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-4">
+          <h2 
+            ref={featureTitleRef}
+            className="text-3xl font-bold text-center mb-4 animate-hidden"
+          >
             Why Choose <span className="text-[#FFD700]">Elite</span> <span className="text-[#20B2AA]">LLC</span>
           </h2>
-          <p className="text-gray-300 text-center max-w-2xl mx-auto mb-16">
+          <p 
+            ref={featureDescRef}
+            className="text-gray-300 text-center max-w-2xl mx-auto mb-16 animate-hidden"
+          >
             We offer comprehensive LLC formation services with unmatched quality and support
           </p>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Feature 1 */}
-            <div className="bg-[#0F264D]/50 p-8 rounded-lg text-center transform transition-transform hover:scale-105 hover:shadow-xl border border-[#20B2AA]/30">
+            <div 
+              ref={el => featureRefs.current[0] = el}
+              className="bg-[#0F264D]/50 p-8 rounded-lg text-center transform transition-transform hover:scale-105 hover:shadow-xl border border-[#20B2AA]/30 animate-hidden"
+            >
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-[#20B2AA] to-[#193366] text-[#FFD700] mb-6">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -120,7 +218,10 @@ const Home = () => {
             </div>
             
             {/* Feature 2 */}
-            <div className="bg-[#0F264D]/50 p-8 rounded-lg text-center transform transition-transform hover:scale-105 hover:shadow-xl border border-[#20B2AA]/30">
+            <div 
+              ref={el => featureRefs.current[1] = el}
+              className="bg-[#0F264D]/50 p-8 rounded-lg text-center transform transition-transform hover:scale-105 hover:shadow-xl border border-[#20B2AA]/30 animate-hidden delay-100"
+            >
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-[#20B2AA] to-[#193366] text-[#FFD700] mb-6">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -133,7 +234,10 @@ const Home = () => {
             </div>
             
             {/* Feature 3 */}
-            <div className="bg-[#0F264D]/50 p-8 rounded-lg text-center transform transition-transform hover:scale-105 hover:shadow-xl border border-[#20B2AA]/30">
+            <div 
+              ref={el => featureRefs.current[2] = el}
+              className="bg-[#0F264D]/50 p-8 rounded-lg text-center transform transition-transform hover:scale-105 hover:shadow-xl border border-[#20B2AA]/30 animate-hidden delay-200"
+            >
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-[#20B2AA] to-[#193366] text-[#FFD700] mb-6">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-4.5-8.599A5 5 0 105.5 15H9" />
@@ -151,16 +255,25 @@ const Home = () => {
       {/* States Section */}
       <div id="states" className="py-20 bg-gradient-to-b from-[#193366] to-[#0A1933]">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center text-white mb-6">
+          <h2 
+            ref={stateTitleRef}
+            className="text-3xl font-bold text-center text-white mb-6 animate-hidden"
+          >
             Specialized Services in <span className="text-[#FFD700]">Wyoming</span> and <span className="text-[#20B2AA]">Montana</span>
           </h2>
-          <p className="text-gray-300 text-center max-w-2xl mx-auto mb-16">
+          <p 
+            ref={stateDescRef}
+            className="text-gray-300 text-center max-w-2xl mx-auto mb-16 animate-hidden"
+          >
             We focus exclusively on these two states to provide expert, specialized service
           </p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             {/* Wyoming */}
-            <div className="bg-[url('/images/wyoming.jpg')] bg-cover bg-center rounded-lg overflow-hidden relative group">
+            <div 
+              ref={el => stateRefs.current[0] = el}
+              className="bg-[url('/images/wyoming.jpg')] bg-cover bg-center rounded-lg overflow-hidden relative group animate-hidden"
+            >
               <div className="absolute inset-0 bg-[#0A1933]/70 group-hover:bg-[#0A1933]/40 transition-all duration-300"></div>
               <div className="relative p-8 h-full flex flex-col justify-between min-h-80">
                 <div>
@@ -202,7 +315,10 @@ const Home = () => {
             </div>
             
             {/* Montana */}
-            <div className="bg-[url('/images/montana.jpg')] bg-cover bg-center rounded-lg overflow-hidden relative group">
+            <div 
+              ref={el => stateRefs.current[1] = el}
+              className="bg-[url('/images/montana.jpg')] bg-cover bg-center rounded-lg overflow-hidden relative group animate-hidden delay-100"
+            >
               <div className="absolute inset-0 bg-[#0A1933]/70 group-hover:bg-[#0A1933]/40 transition-all duration-300"></div>
               <div className="relative p-8 h-full flex flex-col justify-between min-h-80">
                 <div>
@@ -246,52 +362,58 @@ const Home = () => {
         </div>
       </div>
       
-      
       {/* Contact Section */}
-<div id="contact" className="bg-gradient-to-r from-[#0A1933] to-[#193366] text-white py-16">
-  <div className="container mx-auto px-4">
-    <div className="max-w-2xl mx-auto">
-      <h2 className="text-3xl font-bold text-center mb-8">Contact Us</h2>
-      
-      <form onSubmit={handleSubmitContactForm} className="bg-[#0F264D]/50 p-8 rounded-lg border border-[#20B2AA]/30">
-        <div className="mb-6">
-          <label htmlFor="email" className="block text-gray-300 mb-2">Your Email</label>
-          <input
-            type="email"
-            id="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full px-4 py-2 bg-[#0A1933] border border-[#20B2AA]/50 rounded-md text-white"
-            placeholder="your@email.com"
-          />
+      <div id="contact" className="bg-gradient-to-r from-[#0A1933] to-[#193366] text-white py-16">
+        <div className="container mx-auto px-4">
+          <div className="max-w-2xl mx-auto">
+            <h2 className="text-3xl font-bold text-center mb-8">Contact Us</h2>
+            
+            <form 
+              ref={contactFormRef}
+              onSubmit={handleSubmitContactForm} 
+              className="bg-[#0F264D]/50 p-8 rounded-lg border border-[#20B2AA]/30 animate-hidden"
+            >
+              <div className="mb-6">
+                <label htmlFor="email" className="block text-gray-300 mb-2">Your Email</label>
+                <input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full px-4 py-2 bg-[#0A1933] border border-[#20B2AA]/50 rounded-md text-white"
+                  placeholder="your@email.com"
+                />
+              </div>
+              <div className="mb-6">
+                <label htmlFor="message" className="block text-gray-300 mb-2">Your Message</label>
+                <textarea
+                  id="message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  required
+                  rows="4"
+                  className="w-full px-4 py-2 bg-[#0A1933] border border-[#20B2AA]/50 rounded-md text-white"
+                  placeholder="How can we help you?"
+                ></textarea>
+              </div>
+              <Button 
+                type="submit"
+                className="bg-gradient-to-r from-[#20B2AA] to-[#1C9E98] text-white hover:from-[#1C9E98] hover:to-[#20B2AA] w-full"
+              >
+                Contact Us via Email
+              </Button>
+            </form>
+          </div>
         </div>
-        <div className="mb-6">
-          <label htmlFor="message" className="block text-gray-300 mb-2">Your Message</label>
-          <textarea
-            id="message"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            required
-            rows="4"
-            className="w-full px-4 py-2 bg-[#0A1933] border border-[#20B2AA]/50 rounded-md text-white"
-            placeholder="How can we help you?"
-          ></textarea>
-        </div>
-        <Button 
-          type="submit"
-          className="bg-gradient-to-r from-[#20B2AA] to-[#1C9E98] text-white hover:from-[#1C9E98] hover:to-[#20B2AA] w-full"
-        >
-          Contact Us via Email
-        </Button>
-      </form>
-    </div>
-  </div>
-</div>
+      </div>
       
       {/* CTA Section */}
       <div className="bg-gradient-to-r from-[#0A1933] to-[#193366] text-white py-16">
-        <div className="container mx-auto px-4 text-center">
+        <div 
+          ref={ctaSectionRef}
+          className="container mx-auto px-4 text-center animate-hidden"
+        >
           <h2 className="text-3xl font-bold mb-4">Ready to Start Your Business?</h2>
           <p className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto">
             Join hundreds of entrepreneurs who have successfully launched their businesses with our specialized Wyoming and Montana LLC services.

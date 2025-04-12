@@ -124,28 +124,28 @@ const CheckoutForm = () => {
     <form onSubmit={handleSubmit}>
       <div className="space-y-6">
         {application && (
-          <div className="mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
-            <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide mb-2">Registration Details</h3>
+          <div className="mb-6 bg-[#0A1933]/50 p-4 rounded-lg border border-[#20B2AA]/30">
+            <h3 className="text-sm font-medium text-[#20B2AA] uppercase tracking-wide mb-2">Registration Details</h3>
             
             <div className="space-y-3">
               <div>
-                <h4 className="text-xs font-medium text-slate-500">Business Name</h4>
-                <p className="text-lg font-semibold text-slate-900">{application.companyName}</p>
+                <h4 className="text-xs font-medium text-gray-400">Business Name</h4>
+                <p className="text-lg font-semibold text-white">{application.companyName}</p>
               </div>
               
               {application.state && (
                 <div>
-                  <h4 className="text-xs font-medium text-slate-500">State</h4>
-                  <p className="text-md font-medium text-slate-800">{application.state}</p>
+                  <h4 className="text-xs font-medium text-gray-400">State</h4>
+                  <p className="text-md font-medium text-gray-300">{application.state}</p>
                 </div>
               )}
               
-              <div className="mt-4 p-4 bg-primary/10 rounded-md flex justify-between items-center">
-                <span className="font-medium flex items-center">
-                  <DollarSign className="w-4 h-4 mr-1" />
+              <div className="mt-4 p-4 bg-[#FFD700]/10 rounded-md flex justify-between items-center">
+                <span className="font-medium flex items-center text-gray-300">
+                  <DollarSign className="w-4 h-4 mr-1 text-[#FFD700]" />
                   Registration Fee:
                 </span>
-                <span className="text-xl font-bold">
+                <span className="text-xl font-bold text-[#FFD700]">
                   ${application.stateAmount} USD
                 </span>
               </div>
@@ -153,8 +153,8 @@ const CheckoutForm = () => {
           </div>
         )}
         
-        <div className="bg-white p-4 rounded-lg border border-slate-200">
-          <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide mb-4">Payment Information</h3>
+        <div className="bg-[#0A1933]/70 p-4 rounded-lg border border-[#20B2AA]/30">
+          <h3 className="text-sm font-medium text-[#20B2AA] uppercase tracking-wide mb-4">Payment Information</h3>
           <PaymentElement />
         </div>
         
@@ -164,7 +164,7 @@ const CheckoutForm = () => {
             variant="outline" 
             onClick={handleCancel}
             disabled={loading}
-            className="px-5"
+            className="px-5 border-gray-600 text-white hover:bg-[#0A1933] hover:text-gray-300"
           >
             Cancel
           </Button>
@@ -172,7 +172,7 @@ const CheckoutForm = () => {
           <Button 
             type="submit" 
             disabled={!stripe || loading}
-            className="px-8 bg-primary hover:bg-primary/90"
+            className="px-8 bg-[#20B2AA] hover:bg-[#20B2AA]/80 text-[#0A1933] font-medium"
           >
             {loading ? (
               <>
@@ -195,38 +195,51 @@ const StripeCheckout = () => {
   
   if (!clientSecret) {
     return (
-      <div className="container mx-auto py-12 max-w-lg text-center">
-        <div className="bg-amber-50 border border-amber-200 p-6 rounded-lg mb-6">
-          <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-4 text-amber-800">Invalid Payment Session</h1>
-          <p className="mb-6 text-amber-700">Unable to load payment information. Please try again or contact support.</p>
-          <Button onClick={() => window.location.href = '/user/dashboard'} className="w-full">
-            Return to Dashboard
-          </Button>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-[#0A1933] to-[#193366] pt-[60px]">
+        <div className="container mx-auto py-12 max-w-lg text-center px-4">
+          <Card className="bg-[#0A1933]/70 border border-amber-500/30 shadow-xl text-white">
+            <CardContent className="pt-6">
+              <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+              <h1 className="text-2xl font-bold mb-4 text-amber-400">Invalid Payment Session</h1>
+              <p className="mb-6 text-gray-300">Unable to load payment information. Please try again or contact support.</p>
+              <Button 
+                onClick={() => window.location.href = '/user/dashboard'} 
+                className="w-full bg-[#20B2AA] hover:bg-[#20B2AA]/80 text-[#0A1933] font-medium"
+              >
+                Return to Dashboard
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
   }
   
   return (
-    <div className="container mx-auto py-12 max-w-lg">
-      <h1 className="text-3xl font-bold mb-2 text-center text-primary">Complete Your Payment</h1>
-      <p className="text-slate-500 mb-8 text-center">Your LLC registration is almost complete</p>
-      
-      <Card className="border-slate-200 shadow-md">
-        <CardHeader className="bg-slate-50 border-b border-slate-100">
-          <CardTitle className="text-xl">LLC Registration Payment</CardTitle>
-          <CardDescription>
-            Please provide your payment details to complete your registration.
-          </CardDescription>
-        </CardHeader>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-[#0A1933] to-[#193366] pt-[60px]">
+      <div className="container mx-auto py-12 max-w-lg px-4">
+        <h1 className="text-3xl font-bold mb-2 text-center text-white">
+          <span className="text-[#FFD700]">Complete</span> Your <span className="text-[#20B2AA]">Payment</span>
+        </h1>
+        <p className="text-gray-300 mb-8 text-center">Your LLC registration is almost complete</p>
         
-        <CardContent className="pt-6">
-          <Elements stripe={stripePromise} options={{ clientSecret }}>
-            <CheckoutForm />
-          </Elements>
-        </CardContent>
-      </Card>
+        <Card className="bg-[#0A1933]/70 border border-[#20B2AA]/30 shadow-xl text-white">
+          <CardHeader className="border-b border-gray-700">
+            <CardTitle className="text-xl">
+              <span className="text-[#FFD700]">LLC</span> <span className="text-[#20B2AA]">Registration</span> Payment
+            </CardTitle>
+            <CardDescription className="text-gray-300">
+              Please provide your payment details to complete your registration.
+            </CardDescription>
+          </CardHeader>
+          
+          <CardContent className="pt-6">
+            <Elements stripe={stripePromise} options={{ clientSecret }}>
+              <CheckoutForm />
+            </Elements>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

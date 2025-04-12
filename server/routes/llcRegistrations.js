@@ -497,6 +497,8 @@ for (const doc of documentsResult.rows) {
 router.get("/llc-registrations/:id/pdf", async (req, res) => {
   const { id } = req.params;
   const userId = req.query.userId;
+  const userAgent = req.headers['user-agent'] || '';
+  const isMobile = /Mobile|Android|iPhone|iPad|iPod/i.test(userAgent);
   const agencyName = "Legal Formation Services"; // You can change this
   const tempDir = path.join(__dirname, '../temp'); // Temp directory for downloaded images
 
@@ -599,8 +601,23 @@ router.get("/llc-registrations/:id/pdf", async (req, res) => {
       }
     });
     
-    res.setHeader("Content-Disposition", `attachment; filename=LLC_Summary_${registration.company_name.replace(/\s+/g, '_')}_${id}.pdf`);
+    // Set headers for file download - optimized for mobile and desktop
+    const safeFileName = registration.company_name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    
+    // Different headers for mobile vs desktop browsers
+    if (isMobile) {
+      // For mobile browsers - inline content helps with iOS Safari
+      res.setHeader("Content-Disposition", `inline; filename=LLC_Summary_${safeFileName}_${id}.pdf`);
+    } else {
+      // For desktop browsers - attachment works better
+      res.setHeader("Content-Disposition", `attachment; filename=LLC_Summary_${safeFileName}_${id}.pdf`);
+    }
+    
     res.setHeader("Content-Type", "application/pdf");
+    // Add cache control to prevent caching issues on mobile
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
 
     // Pipe the document to the response
     doc.pipe(res);
@@ -610,12 +627,12 @@ router.get("/llc-registrations/:id/pdf", async (req, res) => {
     const logoPath = './public/assets/logo.png'; // Adjust with your actual logo path
     try {
       doc.image(logoPath, 50, 50, { width: 60, height: 60 });
-
     } catch (err) {
       // If logo fails to load, just use text
       doc.fontSize(24).text(agencyName, 50, 50, { align: "left" });
     }
     
+    // Rest of the PDF generation code remains the same as your original
     // Add Agency Name with strong styling
     doc.fontSize(24).text(agencyName, 160, 50, { align: "left" });
     doc.fontSize(12).text("LLC Registration Services", 160, 80, { align: "left" });
@@ -791,30 +808,28 @@ router.get("/llc-registrations/:id/pdf", async (req, res) => {
     }
     
     // Add footer
-   // Add footer
-const totalPages = doc.bufferedPageRange().count;
-if (totalPages > 1) {  // Ensure we have more than one page
-  for (let i = 0; i < totalPages; i++) {
-    doc.switchToPage(i);
-    
-    // Add footer line
-    doc.moveTo(50, 760).lineTo(550, 760).stroke();
-    
-    // Add page number and website
-    doc.fontSize(10).text(
-      `Page ${i + 1} of ${totalPages}`,
-      50, 770,
-      { align: 'right' }
-    );
-    
-    doc.fontSize(10).text(
-      `${agencyName} - Confidential LLC Registration Document`,
-      50, 770,
-      { align: 'left' }
-    );
-  }
-}
-
+    const totalPages = doc.bufferedPageRange().count;
+    if (totalPages > 1) {  // Ensure we have more than one page
+      for (let i = 0; i < totalPages; i++) {
+        doc.switchToPage(i);
+        
+        // Add footer line
+        doc.moveTo(50, 760).lineTo(550, 760).stroke();
+        
+        // Add page number and website
+        doc.fontSize(10).text(
+          `Page ${i + 1} of ${totalPages}`,
+          50, 770,
+          { align: 'right' }
+        );
+        
+        doc.fontSize(10).text(
+          `${agencyName} - Confidential LLC Registration Document`,
+          50, 770,
+          { align: 'left' }
+        );
+      }
+    }
 
     // Finalize PDF
     doc.end();
