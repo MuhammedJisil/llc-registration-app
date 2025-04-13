@@ -848,4 +848,52 @@ router.get("/llc-registrations/:id/pdf", async (req, res) => {
   }
 });
 
+router.get('/llc-registrations/:registrationId/files', authenticateToken, async (req, res) => {
+  try {
+    const { registrationId } = req.params;
+    const userId = req.user.id;
+    
+    console.log('API Request details:');
+    console.log('- Registration ID:', registrationId, 'Type:', typeof registrationId);
+    console.log('- User ID:', userId, 'Type:', typeof userId);
+    
+    // First check if the registration exists at all
+    const registrationExistsQuery = `SELECT user_id FROM llc_registrations WHERE id = $1`;
+    const existsResult = await pool.query(registrationExistsQuery, [registrationId]);
+    
+    if (existsResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false, 
+        error: 'Registration not found'
+      });
+    }
+    
+    // If it exists but belongs to another user
+    if (existsResult.rows[0].user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'You do not have permission to access this registration'
+      });
+    }
+    
+    // If we get here, the registration exists and belongs to the user
+    // Continue with fetching files...
+    
+    // Log the SQL query for files
+    const filesQuery = `SELECT * FROM registration_files WHERE registration_id = $1`;
+    const filesResult = await pool.query(filesQuery, [registrationId]);
+    
+    return res.json({
+      success: true,
+      files: filesResult.rows || []
+    });
+  } catch (error) {
+    console.error('Error in registration files route:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Server error while retrieving files'
+    });
+  }
+});
+
 module.exports = router;

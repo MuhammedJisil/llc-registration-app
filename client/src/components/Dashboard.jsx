@@ -11,7 +11,8 @@ import {
   EyeOff,
   CreditCard,
   Trash2,
-  Plus
+  Plus,
+  File, FileText, Image as ImageIcon
 } from 'lucide-react';
 import { 
   Popover, 
@@ -201,6 +202,140 @@ const NotificationBell = () => {
   );
 };
 
+const fetchRegistrationFiles = async (registrationId) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('No token found in localStorage');
+      return [];
+    }
+    
+    const decodedToken = jwtDecode(token);
+    console.log('Token user ID:', decodedToken.id);
+    
+    // Make a direct API call to check if the registration exists first
+    const checkUrl = `${BASE_URL}/api/llc-registrations/user/${decodedToken.id}`;
+    console.log(`Checking user registrations at: ${checkUrl}`);
+    
+    const checkResponse = await axios.get(checkUrl, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    // Check if this registration ID exists in the user's registrations
+    const registration = checkResponse.data.find(reg => reg.id === parseInt(registrationId));
+    if (!registration) {
+      console.log(`Registration ${registrationId} not found in user's registrations`);
+      throw new Error('Registration not found in your account');
+    }
+    
+    // If registration exists, proceed to fetch files
+    const apiUrl = `${BASE_URL}/api/llc-registrations/${registrationId}/files`;
+    console.log(`Making API request to: ${apiUrl}`);
+    
+    const response = await axios.get(apiUrl, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    console.log('API response:', response.data);
+    return response.data.files || [];
+  } catch (error) {
+    console.error('Error fetching registration files:', error);
+    
+    if (error.response) {
+      console.log('Error response status:', error.response.status);
+      console.log('Error response data:', error.response.data);
+      
+      // Provide more specific error details
+      if (error.response.status === 404) {
+        alert(`Registration not found. Please verify the registration exists and belongs to your account. Registration ID: ${registrationId}`);
+      } else if (error.response.status === 401 || error.response.status === 403) {
+        alert("You don't have permission to access this registration's files.");
+      } else {
+        alert(`Server error: ${error.response.data.error || 'Unknown error'}`);
+      }
+    } else if (error.message) {
+      alert(error.message);
+    }
+    
+    throw error;
+  }
+};
+// Add this component to render document viewer modal
+const DocumentViewerModal = ({ isOpen, onClose, files }) => {
+  if (!isOpen) return null;
+  
+  const handleFileClick = (fileUrl) => {
+    window.open(fileUrl, '_blank');
+  };
+  
+  return (
+    <AlertDialog open={isOpen} onOpenChange={onClose}>
+      <AlertDialogContent className="bg-[#0A1933] border border-[#20B2AA] text-white max-w-4xl">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-[#FFD700]">Registration Documents</AlertDialogTitle>
+          <AlertDialogDescription className="text-gray-300">
+            These documents were uploaded by the administrator for your registration.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        
+        <ScrollArea className="h-[400px] mt-4">
+          {files.length === 0 ? (
+            <p className="text-center text-gray-400 py-4">No documents available</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {files.map((file) => {
+                const isPdf = file.file_type === 'application/pdf' || file.file_name.toLowerCase().endsWith('.pdf');
+                
+                return (
+                  <Card 
+                    key={file.id} 
+                    className="bg-[#193366] border border-[#20B2AA] cursor-pointer hover:bg-[#254580] transition-colors"
+                    onClick={() => handleFileClick(file.file_url)}
+                  >
+                    <CardContent className="p-4 flex flex-col items-center">
+                      {isPdf ? (
+                        <div className="bg-[#0A1933] rounded-lg p-4 mb-2">
+                          <FileText size={48} className="text-[#FFD700]" />
+                        </div>
+                      ) : (
+                        <div className="h-32 w-full relative mb-2 overflow-hidden rounded-lg">
+                          <img 
+                            src={file.file_url} 
+                            alt={file.file_name} 
+                            className="object-cover h-full w-full"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.parentNode.innerHTML = `<div class="flex items-center justify-center h-full bg-[#0A1933] rounded-lg"><span class="text-[#FFD700]"><ImageIcon size={48} /></span></div>`;
+                            }}
+                          />
+                        </div>
+                      )}
+                      <p className="text-sm text-center font-medium text-white mt-2 line-clamp-1" title={file.file_name}>
+                        {file.file_name}
+                      </p>
+                      <p className="text-xs text-center text-gray-300 mt-1">
+                        {new Date(file.uploaded_at).toLocaleDateString()}
+                      </p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </ScrollArea>
+        
+        <AlertDialogFooter>
+          <AlertDialogCancel 
+            className="bg-[#193366] text-white hover:bg-[#0A1933] border border-[#20B2AA]"
+          >
+            Close
+          </AlertDialogCancel>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+};
+
 const Dashboard = () => {
   const [llcRegistrations, setLlcRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -209,6 +344,9 @@ const Dashboard = () => {
   const [registrationToDelete, setRegistrationToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false);
+  const [currentRegistrationFiles, setCurrentRegistrationFiles] = useState([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -245,6 +383,34 @@ const Dashboard = () => {
     fetchAllUserData();
   }, [navigate]);
   
+
+  const handleViewDocuments = async (registrationId) => {
+    setLoadingFiles(true);
+    try {
+      const files = await fetchRegistrationFiles(registrationId);
+      
+      // Check if files is empty array
+      if (files && files.length === 0) {
+        alert("No documents found for this registration. Please upload documents first.");
+      } else {
+        setCurrentRegistrationFiles(files);
+        setIsDocumentViewerOpen(true);
+      }
+    } catch (error) {
+      console.error('Error loading files:', error);
+      
+      // Show specific error message based on response
+      if (error.response && error.response.status === 404) {
+        alert("Registration documents could not be found. The registration may have been deleted or you don't have permission to access it.");
+      } else {
+        alert("Failed to load documents. Please try again later.");
+      }
+    } finally {
+      setLoadingFiles(false);
+    }
+  };
+
+
   const getStatusColor = (status) => {
     if (!status) return 'bg-gray-100 text-gray-800';
     
@@ -682,6 +848,25 @@ const Dashboard = () => {
     )}
   </Button>
 )}
+
+<Button 
+                            variant="outline"
+                            onClick={() => handleViewDocuments(registration.id)}
+                            className="flex items-center border-[#20B2AA] text-[#20B2AA] hover:bg-[#20B2AA] hover:text-[#0A1933]"
+                            disabled={loadingFiles}
+                          >
+                            {loadingFiles ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 sm:mr-0 md:mr-2 animate-spin" />
+                                <span className="hidden sm:hidden md:inline">Loading...</span>
+                              </>
+                            ) : (
+                              <>
+                                <File className="h-4 w-4 mr-2 sm:mr-0 md:mr-2" />
+                                <span className="hidden sm:hidden md:inline">View Documents</span>
+                              </>
+                            )}
+                          </Button>
                           
                           {/* Only show payment button for completed registrations (Step 6) that aren't paid */}
                           {isPaymentEligible && !isPaid && (
@@ -754,6 +939,11 @@ const Dashboard = () => {
       </AlertDialog>
       </div>
     </div>
+    <DocumentViewerModal 
+        isOpen={isDocumentViewerOpen} 
+        onClose={() => setIsDocumentViewerOpen(false)} 
+        files={currentRegistrationFiles} 
+      />
   </div>
   );
 };
