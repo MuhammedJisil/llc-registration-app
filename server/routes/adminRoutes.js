@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
+const { upload, deleteFile, getPublicIdFromUrl, cloudinary } = require('../middleware/fileUpload');
 
 // Middleware to check if user is authenticated as admin
 const isAdminAuthenticated = async (req, res, next) => {
@@ -738,6 +739,7 @@ router.get(
   }
 );
 
+// Downloading summary
 router.get("/registrations/:id/pdf", async (req, res) => {
   const { id } = req.params;
   const userId = req.query.userId;
@@ -1143,6 +1145,202 @@ router.get("/registrations/:id/pdf", async (req, res) => {
     // Clean up temp files in case of error
     cleanupTempFiles(tempFiles);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+// Upload file for a registration (admin only)
+router.post('/registrations/:id/files', isAdminAuthenticated, upload.single('file'), async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    // Validate registration exists
+    const registrationCheck = await pool.query(
+      'SELECT id FROM llc_registrations WHERE id = $1', 
+      [id]
+    );
+    
+    if (registrationCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Registration not found' });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    // Insert file information into database
+    const { originalname, mimetype } = req.file;
+    const fileUrl = req.file.path; // Cloudinary URL
+    const publicId = req.file.filename; // This should be the public_id from Cloudinary
+    
+    const fileType = mimetype.split('/')[1];
+    const resourceType = mimetype.startsWith('image') ? 'image' : 'raw';
+    
+    const result = await pool.query(
+      `INSERT INTO registration_files 
+      (registration_id, file_url, file_name, public_id, resource_type, file_type) 
+      VALUES ($1, $2, $3, $4, $5, $6) 
+      RETURNING *`,
+      [id, fileUrl, originalname, publicId, resourceType, fileType]
+    );
+    
+    res.status(201).json({
+      success: true,
+      file: result.rows[0]
+    });
+    
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all files for a registration
+router.get('/registrations/:id/files', isAdminAuthenticated, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const files = await pool.query(
+      'SELECT * FROM registration_files WHERE registration_id = $1 ORDER BY uploaded_at DESC', 
+      [id]
+    );
+    
+    res.json({ files: files.rows });
+    
+  } catch (error) {
+    console.error('Error fetching files:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/files/:fileId', isAdminAuthenticated, async (req, res) => {
+  const { fileId } = req.params;
+  
+  try {
+    // Get file info from database
+    const fileQuery = await pool.query(
+      'SELECT id, file_url, public_id FROM registration_files WHERE id = $1',
+      [fileId]
+    );
+    
+    if (fileQuery.rows.length === 0) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    const fileInfo = fileQuery.rows[0];
+    
+    // Extract public ID or get it from the file url if needed
+    let publicId = fileInfo.public_id;
+    if (!publicId && fileInfo.file_url) {
+      publicId = getPublicIdFromUrl(fileInfo.file_url);
+    }
+    
+    if (publicId) {
+      // Determine resource type based on URL structure
+      const resourceType = fileInfo.file_url.includes('/image/upload/') ? 'image' : 'raw';
+      
+      // Delete from Cloudinary using the same function that works for LLC registrations
+      const deleteResult = await deleteFile(publicId, resourceType);
+      
+      console.log('Delete result:', {
+        fileId: fileInfo.id,
+        originalUrl: fileInfo.file_url,
+        publicId: publicId,
+        resourceType: resourceType,
+        success: deleteResult.success,
+        message: deleteResult.message
+      });
+    }
+    
+    // Delete from database regardless of Cloudinary result
+    await pool.query(
+      'DELETE FROM registration_files WHERE id = $1',
+      [fileId]
+    );
+    
+    res.json({
+      success: true,
+      message: 'File deleted successfully'
+    });
+    
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update a file (replace existing file)
+router.put('/files/:fileId', isAdminAuthenticated, upload.single('file'), async (req, res) => {
+  const { fileId } = req.params;
+  
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    // Get existing file info
+    const fileQuery = await pool.query(
+      'SELECT id, file_url, public_id FROM registration_files WHERE id = $1',
+      [fileId]
+    );
+    
+    if (fileQuery.rows.length === 0) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    const existingFile = fileQuery.rows[0];
+    
+    // Extract public ID or get it from the file url if needed
+    let publicIdToDelete = existingFile.public_id;
+    if (!publicIdToDelete && existingFile.file_url) {
+      publicIdToDelete = getPublicIdFromUrl(existingFile.file_url);
+    }
+    
+    // Delete old file from Cloudinary if we have a public ID
+    if (publicIdToDelete) {
+      // Determine resource type based on URL structure
+      const resourceType = existingFile.file_url.includes('/image/upload/') ? 'image' : 'raw';
+      
+      const deleteResult = await deleteFile(publicIdToDelete, resourceType);
+      
+      console.log('Delete result for old file:', {
+        fileId: existingFile.id,
+        originalUrl: existingFile.file_url,
+        publicId: publicIdToDelete,
+        resourceType: resourceType,
+        success: deleteResult.success,
+        message: deleteResult.message
+      });
+    }
+    
+    // Prepare new file details
+    const { originalname, mimetype } = req.file;
+    const fileUrl = req.file.path; // Cloudinary URL
+    
+    // Get the public ID from the new file
+    const newPublicId = req.file.filename || getPublicIdFromUrl(fileUrl);
+    
+    const fileType = mimetype.split('/')[1];
+    const resourceType = mimetype.startsWith('image') ? 'image' : 'raw';
+    
+    // Update file information in database
+    const result = await pool.query(
+      `UPDATE registration_files 
+       SET file_url = $1, file_name = $2, public_id = $3,
+           resource_type = $4, file_type = $5, uploaded_at = NOW()
+       WHERE id = $6
+       RETURNING *`,
+      [fileUrl, originalname, newPublicId, resourceType, fileType, fileId]
+    );
+    
+    res.json({
+      success: true,
+      file: result.rows[0]
+    });
+    
+  } catch (error) {
+    console.error('Error updating file:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
