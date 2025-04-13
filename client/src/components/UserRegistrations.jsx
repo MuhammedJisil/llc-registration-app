@@ -31,7 +31,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useParams, useNavigate } from 'react-router-dom';
 import { BASE_URL } from '@/lib/config';
-import { Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import { Eye, ChevronDown, ChevronUp, Download, Loader2 } from 'lucide-react';
+import axios from 'axios';
 
 // Predefined message templates
 const PREDEFINED_MESSAGES = [
@@ -81,6 +82,7 @@ const UserRegistrations = () => {
   const [notifications, setNotifications] = useState([]);
   const [userEmail, setUserEmail] = useState(null);
   const [expandedRows, setExpandedRows] = useState({});
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const { userId } = useParams();
   const navigate = useNavigate();
@@ -279,6 +281,67 @@ const UserRegistrations = () => {
     );
   }
 
+// Client-side function to download PDF
+const downloadSummaryPDF = async (registrationId, companyName) => {
+  setIsDownloading(true);
+  try {
+    const adminToken = localStorage.getItem('adminToken');
+    if (!adminToken) {
+      throw new Error("Authentication token is missing. Please log in again.");
+    }
+    
+    // Detect if user is on mobile
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    // Make sure userId is available (from useParams or context)
+    if (!userId) {
+      throw new Error("User ID is required for this operation");
+    }
+    
+    // Create a safe filename
+    const safeFileName = (companyName || "LLC").replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    
+    if (isMobile) {
+      // For mobile devices - open in a new tab/window with token in query parameter
+      const pdfUrl = `${BASE_URL}/api/admin/registrations/${registrationId}/pdf?userId=${userId}&token=${encodeURIComponent(adminToken)}`;
+      window.open(pdfUrl, '_blank');
+    } else {
+      // For desktop - use axios with blob response type
+      const response = await axios.get(
+        `${BASE_URL}/api/admin/registrations/${registrationId}/pdf`, 
+        {
+          responseType: "blob",
+          params: { userId },
+          headers: {
+            'Authorization': `Bearer ${adminToken}`
+          }
+        }
+      );
+      
+      // Create a download link
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `${safeFileName}_Registration_Summary.pdf`);
+      
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(link);
+      }, 100);
+    }
+  } catch (error) {
+    console.error("Error downloading PDF:", error);
+    alert(`Failed to download PDF: ${error.message}`);
+  } finally {
+    setIsDownloading(false);
+  }
+};
+
   return (
     <div className="p-6 pt-24 space-y-6 bg-gradient-to-r from-[#0A1933] to-[#193366] min-h-screen text-white">
       <div className="flex justify-between items-center">
@@ -339,13 +402,31 @@ const UserRegistrations = () => {
                           {new Date(registration.created_at).toLocaleDateString()}
                         </TableCell>
                         <TableCell className="flex space-x-2">
-                          <Button 
-                            variant="outline"
-                            onClick={() => navigate(`/admin/registrations/${registration.id}`)}
-                            className="border-[#20B2AA] text-[#20B2AA] hover:bg-[#20B2AA] hover:text-[#0A1933]"
-                          >
-                            View Details
-                          </Button>
+                        <Button 
+    variant="outline"
+    onClick={() => navigate(`/admin/registrations/${registration.id}`)}
+    className="border-[#20B2AA] text-[#20B2AA] hover:bg-[#20B2AA] hover:text-[#0A1933]"
+  >
+    View Details
+  </Button>
+  <Button 
+    variant="outline"
+    onClick={() => downloadSummaryPDF(registration.id, registration.company_name)}
+    className="border-[#20B2AA] text-[#20B2AA] hover:bg-[#20B2AA] hover:text-[#0A1933]"
+    disabled={isDownloading}
+  >
+    {isDownloading ? (
+      <>
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        <span>Downloading...</span>
+      </>
+    ) : (
+      <>
+        <Download className="h-4 w-4 mr-2" />
+        <span>Download PDF</span>
+      </>
+    )}
+  </Button>
                           <Dialog 
                             onOpenChange={(open) => {
                               if (open) {
@@ -551,6 +632,25 @@ const UserRegistrations = () => {
                         </div>
                         
                         <div className="flex flex-col space-y-2">
+                        <Button 
+    variant="outline"
+    size="sm" 
+    onClick={() => downloadSummaryPDF(registration.id, registration.company_name)}
+    className="w-full border-[#20B2AA] text-[#20B2AA] hover:bg-[#20B2AA] hover:text-[#0A1933]"
+    disabled={isDownloading}
+  >
+    {isDownloading ? (
+      <>
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        <span>Downloading...</span>
+      </>
+    ) : (
+      <>
+        <Download className="h-4 w-4 mr-2" />
+        <span>Download PDF</span>
+      </>
+    )}
+  </Button>
                           <Dialog 
                             onOpenChange={(open) => {
                               if (open) {

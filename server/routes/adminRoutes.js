@@ -4,6 +4,11 @@ const {pool} = require('../config/db'); // Your database connection
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { check, validationResult } = require('express-validator');
+const PDFDocument = require('pdfkit');
+const path = require('path');
+const fs = require('fs');
+const axios = require('axios');
+const { v4: uuidv4 } = require('uuid');
 
 // Middleware to check if user is authenticated as admin
 const isAdminAuthenticated = async (req, res, next) => {
@@ -732,5 +737,413 @@ router.get(
     }
   }
 );
+
+router.get("/registrations/:id/pdf", async (req, res) => {
+  const { id } = req.params;
+  const userId = req.query.userId;
+  const tokenFromQuery = req.query.token;
+  const authHeader = req.headers.authorization;
+  const userAgent = req.headers['user-agent'] || '';
+  const isMobile = /Mobile|Android|iPhone|iPad|iPod/i.test(userAgent);
+  const agencyName = "Legal Formation Services"; // You can change this
+  const tempDir = path.join(__dirname, '../temp'); // Temp directory for downloaded images
+
+  // Ensure temp directory exists
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
+
+  // Add validation
+  if (!userId) {
+    return res.status(400).json({ error: "User ID is required" });
+  }
+
+  // Get token from query or header
+  let token;
+  if (tokenFromQuery) {
+    token = tokenFromQuery;
+  } else if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7);
+  } else {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+
+  // Verify admin token
+  try {
+    // Verify admin is authenticated - using JWT verification
+    let adminId;
+    try {
+      const decoded = jwt.verify(token, process.env.ADMIN_JWT_SECRET);
+      adminId = decoded.id;
+      
+      // Verify admin exists
+      const adminResult = await pool.query(
+        "SELECT * FROM admins WHERE id = $1",
+        [adminId]
+      );
+      
+      if (adminResult.rows.length === 0) {
+        return res.status(401).json({ error: "Invalid admin credentials" });
+      }
+    } catch (jwtError) {
+      console.error("JWT verification failed:", jwtError);
+      return res.status(401).json({ error: "Invalid authentication token" });
+    }
+
+    // Function to download image from URL
+    const downloadImage = async (url, localPath) => {
+      try {
+        console.log(`Downloading image from: ${url}`);
+        
+        const response = await axios({
+          method: 'GET',
+          url: url,
+          responseType: 'stream',
+          timeout: 15000 // 15 second timeout
+        });
+        
+        return new Promise((resolve, reject) => {
+          const writer = fs.createWriteStream(localPath);
+          response.data.pipe(writer);
+          
+          writer.on('finish', () => {
+            console.log(`Successfully downloaded image to: ${localPath}`);
+            resolve(localPath);
+          });
+          
+          writer.on('error', (err) => {
+            console.error(`Error writing image to file: ${err.message}`);
+            reject(err);
+          });
+        });
+      } catch (error) {
+        console.error(`Error downloading image from ${url}:`, error.message);
+        throw error;
+      }
+    };
+
+    // Clean up temp files when done
+    const cleanupTempFiles = (filePaths) => {
+      filePaths.forEach(filePath => {
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (err) {
+          console.error(`Error deleting temp file ${filePath}:`, err);
+        }
+      });
+    };
+
+    const tempFiles = []; // Track temp files for cleanup
+
+    // Get the registration information
+    const registrationResult = await pool.query(
+      "SELECT * FROM llc_registrations WHERE id = $1",
+      [id]
+    );
+
+    if (registrationResult.rows.length === 0) {
+      return res.status(404).json({ error: "Registration not found" });
+    }
+
+    const registration = registrationResult.rows[0];
+
+    // Fetch address information
+    const addressResult = await pool.query(
+      "SELECT * FROM llc_addresses WHERE registration_id = $1",
+      [id]
+    );
+    
+    const address = addressResult.rows.length > 0 ? addressResult.rows[0] : null;
+    
+    // Fetch owners information
+    const ownersResult = await pool.query(
+      "SELECT * FROM llc_owners WHERE registration_id = $1 ORDER BY ownership_percentage DESC",
+      [id]
+    );
+    
+    const owners = ownersResult.rows;
+    
+    // Fetch identification documents
+    const documentsResult = await pool.query(
+      "SELECT * FROM identification_documents WHERE registration_id = $1 AND document_type = 'id_proof'",
+      [id]
+    );
+    
+    const idDocuments = documentsResult.rows;
+
+    // Create a PDF document
+    const doc = new PDFDocument({
+      margins: {
+        top: 50,
+        bottom: 50,
+        left: 50,
+        right: 50
+      },
+      info: {
+        Title: `LLC Registration Summary - ${registration.company_name}`,
+        Author: agencyName,
+        Subject: 'LLC Registration Documents'
+      }
+    });
+    
+    // Set headers for file download - optimized for mobile and desktop
+    const safeFileName = registration.company_name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    
+    // Different headers for mobile vs desktop browsers
+    if (isMobile) {
+      // For mobile browsers - inline content helps with iOS Safari
+      res.setHeader("Content-Disposition", `inline; filename=LLC_Summary_${safeFileName}_${id}.pdf`);
+    } else {
+      // For desktop browsers - attachment works better
+      res.setHeader("Content-Disposition", `attachment; filename=LLC_Summary_${safeFileName}_${id}.pdf`);
+    }
+    
+    res.setHeader("Content-Type", "application/pdf");
+    // Add cache control to prevent caching issues on mobile
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+
+    // Pipe the document to the response
+    doc.pipe(res);
+
+    // Agency Logo and Header
+    const logoPath = './public/assets/logo.png'; // Adjust with your actual logo path
+    try {
+      doc.image(logoPath, 50, 50, { width: 60, height: 60 });
+    } catch (err) {
+      // If logo fails to load, just use text
+      doc.fontSize(24).text(agencyName, 50, 50, { align: "left" });
+    }
+    
+    // Add Agency Name with strong styling
+    doc.fontSize(24).text(agencyName, 160, 50, { align: "left" });
+    doc.fontSize(12).text("LLC Registration Services", 160, 80, { align: "left" });
+    
+    // Add current date
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    doc.fontSize(10).text(`Generated on: ${currentDate}`, 50, 100, { align: "right" });
+    
+    // Add horizontal line
+    doc.moveTo(50, 120).lineTo(550, 120).stroke();
+    
+    doc.moveDown(2);
+
+    // PDF Content - Title
+    doc.fontSize(22).text("LLC Registration Summary", { align: "center" });
+    doc.moveDown();
+
+    // Company details section
+    doc.fontSize(16).text("Company Details", 50, 170);
+    doc.moveDown(0.5);
+    
+    // Info table styling
+    const drawInfoRow = (label, value, yPos) => {
+      doc.fontSize(11).font('Helvetica-Bold').text(label, 70, yPos);
+      doc.fontSize(11).font('Helvetica').text(value || "N/A", 250, yPos);
+    };
+    
+    let yPos = 195;
+    
+    drawInfoRow("Company Name:", registration.company_name, yPos);
+    yPos += 20;
+    drawInfoRow("Company Type:", registration.company_type || "LLC", yPos);
+    yPos += 20;
+    drawInfoRow("Registration State:", registration.state, yPos);
+    yPos += 20;
+    drawInfoRow("Payment Status:", registration.payment_status || "Unpaid", yPos);
+    yPos += 20;
+    drawInfoRow("Registration Date:", new Date(registration.created_at).toLocaleDateString(), yPos);
+    yPos += 20;
+    drawInfoRow("User ID:", registration.user_id, yPos);
+    
+    yPos += 40;
+    
+    // Address section
+    doc.fontSize(16).text("Address", 50, yPos);
+    yPos += 25;
+    
+    if (address) {
+      doc.fontSize(11).text(`${address.street}`, 70, yPos);
+      yPos += 20;
+      doc.fontSize(11).text(`${address.city}, ${address.state_province} ${address.postal_code}`, 70, yPos);
+      yPos += 20;
+      doc.fontSize(11).text(`${address.country}`, 70, yPos);
+    } else {
+      doc.fontSize(11).text("No address information available", 70, yPos);
+    }
+    
+    yPos += 40;
+    
+    // Owners section
+    doc.fontSize(16).text("Company Owners", 50, yPos);
+    yPos += 25;
+    
+    if (owners.length > 0) {
+      // Table header
+      doc.fontSize(11).font('Helvetica-Bold').text("Name", 70, yPos);
+      doc.fontSize(11).font('Helvetica-Bold').text("Ownership %", 350, yPos);
+      yPos += 20;
+      
+      // Add horizontal line
+      doc.moveTo(70, yPos).lineTo(500, yPos).stroke();
+      yPos += 10;
+      
+      // Owner rows
+      owners.forEach(owner => {
+        doc.fontSize(11).font('Helvetica').text(owner.full_name, 70, yPos);
+        doc.fontSize(11).font('Helvetica').text(`${owner.ownership_percentage}%`, 350, yPos);
+        yPos += 20;
+      });
+    } else {
+      doc.fontSize(11).text("No owner information available", 70, yPos);
+      yPos += 20;
+    }
+    
+    // Check if we need a new page for ID documents
+    if (yPos > 650) {
+      doc.addPage();
+      yPos = 50;
+    } else {
+      yPos += 40;
+    }
+    
+    // ID Documents section
+    doc.fontSize(16).text("Identification Documents", 50, yPos);
+    yPos += 25;
+    
+    if (idDocuments.length > 0) {
+      for (const document of idDocuments) {
+        doc.fontSize(11).font('Helvetica-Bold').text(`Document Type: ${document.id_type || 'ID Proof'}`, 70, yPos);
+        yPos += 20;
+        
+        // Try to include the image from Cloudinary URL
+        if (document.file_path) {
+          // Check if it's a PDF
+          if (document.file_name.toLowerCase().endsWith('.pdf')) {
+            // Create a clickable link for PDF
+            doc.fontSize(11)
+               .fillColor('blue')
+               .text(`PDF Document: ${document.file_name}`, 70, yPos, {
+                 link: document.file_path,
+                 underline: true
+               });
+            yPos += 20;
+            
+            // Add the full URL as text for reference
+            doc.fontSize(10)
+               .fillColor('black')
+               .text(`URL: ${document.file_path}`, 70, yPos);
+            yPos += 20;
+          } 
+          // Handle image documents
+          else if (/\.(jpg|jpeg|png|gif|bmp)$/i.test(document.file_name)) {
+            try {
+              // Add a note about the file
+              doc.fontSize(10).text(`File: ${document.file_name}`, 70, yPos);
+              yPos += 15;
+              
+              // If image doesn't fit on current page, add a new page
+              if (yPos + 200 > 750) {
+                doc.addPage();
+                yPos = 50;
+              }
+              
+              // Download the image to a temporary file
+              const tempFilePath = path.join(tempDir, `${uuidv4()}_${document.file_name}`);
+              tempFiles.push(tempFilePath); // Track for cleanup
+              
+              console.log(`Attempting to download image: ${document.file_path}`);
+              console.log(`Temporary file path: ${tempFilePath}`);
+              
+              // Now download and embed the image
+              try {
+                await downloadImage(document.file_path, tempFilePath);
+                
+                // Verify the file was downloaded and has content
+                const fileStats = fs.statSync(tempFilePath);
+                console.log(`Downloaded file size: ${fileStats.size} bytes`);
+                
+                if (fileStats.size > 0) {
+                  // Calculate image dimensions to fit nicely on the page
+                  const imgWidth = 300;
+                  const imgHeight = 200;
+                  
+                  // Add the image to the PDF
+                  doc.image(tempFilePath, 70, yPos, {
+                    fit: [imgWidth, imgHeight],
+                    align: 'center',
+                    valign: 'center'
+                  });
+                  
+                  yPos += imgHeight + 30;
+                } else {
+                  throw new Error("Downloaded file is empty");
+                }
+              } catch (imageError) {
+                console.error("Error processing image:", imageError);
+                doc.fontSize(10).text(`Unable to display image. URL: ${document.file_path}`, 70, yPos);
+                doc.rect(70, yPos + 15, 300, 100).stroke();
+                doc.fontSize(10).text("Image could not be processed", 70 + 150 - 60, yPos + 50);
+                yPos += 130;
+              }
+            } catch (imgErr) {
+              console.error("Error handling image:", imgErr);
+              doc.fontSize(10).text(`Unable to display image. URL: ${document.file_path}`, 70, yPos);
+              yPos += 20;
+            }
+          }
+        }
+      }
+    } else {
+      doc.fontSize(11).text("No identification documents available", 70, yPos);
+    }
+    
+    // Add footer
+    const totalPages = doc.bufferedPageRange().count;
+    if (totalPages > 1) {  // Ensure we have more than one page
+      for (let i = 0; i < totalPages; i++) {
+        doc.switchToPage(i);
+        
+        // Add footer line
+        doc.moveTo(50, 760).lineTo(550, 760).stroke();
+        
+        // Add page number and website
+        doc.fontSize(10).text(
+          `Page ${i + 1} of ${totalPages}`,
+          50, 770,
+          { align: 'right' }
+        );
+        
+        doc.fontSize(10).text(
+          `${agencyName} - Confidential LLC Registration Document`,
+          50, 770,
+          { align: 'left' }
+        );
+      }
+    }
+
+    // Finalize PDF
+    doc.end();
+    
+    // Event handler for when the PDF is completely written
+    doc.on('end', () => {
+      // Clean up temp files after PDF is sent
+      cleanupTempFiles(tempFiles);
+    });
+    
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    // Clean up temp files in case of error
+    cleanupTempFiles(tempFiles);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 module.exports = router;
