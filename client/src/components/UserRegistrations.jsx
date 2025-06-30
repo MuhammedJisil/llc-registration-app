@@ -853,15 +853,12 @@ const UserRegistrations = () => {
                                   ) : (
                                     <>
                                       <Download className="h-4 w-4 mr-2" />
-                                      <span>Download PDF</span>
+                                      <span>PDF</span>
                                     </>
                                   )}
                                 </Button>
                                 {/* File components */}
-                                <FileUploadDialog 
-                                  registration={registration}
-                                  onSuccess={() => {}}
-                                />
+                                
                                 <FilesList registration={registration} />
                                 <Dialog 
                                   onOpenChange={(open) => {
@@ -882,7 +879,7 @@ const UserRegistrations = () => {
                                 >
                                   <DialogTrigger asChild>
                                     <Button variant="secondary" className="bg-[#FFD700] text-[#0A1933] hover:bg-[#FFD700]/80">
-                                      Send Notification
+                                      Notify
                                     </Button>
                                   </DialogTrigger>
                                   <DialogContent className="sm:max-w-[600px] bg-[#0A1933] border border-[#20B2AA] text-white">
@@ -1069,10 +1066,6 @@ const UserRegistrations = () => {
                               
                               <div className="flex flex-col space-y-2">
                                 {/* Add FileUploadDialog and FilesList for mobile view */}
-                                <FileUploadDialog 
-                                  registration={registration}
-                                  onSuccess={() => {}}
-                                />
                                 <FilesList registration={registration} />
                                 <Button 
                                   variant="outline"
