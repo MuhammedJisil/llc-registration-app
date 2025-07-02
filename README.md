@@ -3,7 +3,7 @@
 A full-stack web application for registering and managing Limited Liability Companies (LLCs) with secure authentication, payment processing, and admin management features.
 
 🎥 Demo Video
-Watch the full project demo on LinkedIn: Project Demo Video
+Watch the full project demo on LinkedIn: https://www.linkedin.com/feed/update/urn:li:ugcPost:7346039377963171842/
 
 Features
 User Features
